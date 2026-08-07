@@ -25,7 +25,7 @@ module.exports = async function (req, res) {
     }
 
     // 1. Gọi Gemini
-    const model = process.env.GEMINI_TEXT_MODEL || "gemini-1.5-flash"; 
+    const model = process.env.GEMINI_TEXT_MODEL || "gemini-3.5-flash"; 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const textResponse = await fetch(geminiUrl, {
