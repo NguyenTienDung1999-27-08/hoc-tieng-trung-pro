@@ -24,7 +24,6 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    // Tiêm lệnh BẮT BUỘC định dạng Pinyin vào thẳng não Gemini
     const finalPrompt = prompt + "\n\n(LƯU Ý BẮT BUỘC TỪ HỆ THỐNG: Nếu có viết Pinyin, BẮT BUỘC phải đặt toàn bộ Pinyin vào trong ngoặc vuông [...]. Ví dụ: 欢迎你！ [Huānyíng nǐ!] (Chào mừng em!). Tuyệt đối không dùng định dạng khác để tránh lỗi hệ thống âm thanh.)";
 
     // 1. Gọi Gemini 3.5-flash
@@ -54,19 +53,13 @@ module.exports = async function (req, res) {
       throw new Error("Gemini không trả về nội dung.");
     }
 
-    // 2. TIỀN XỬ LÝ VĂN BẢN (LỘT SẠCH PINYIN VÀ DẤU IN ĐẬM ĐỂ LÀM AUDIO)
+    // 2. DỌN DẸP VĂN BẢN TRƯỚC KHI TẠO AUDIO
     let textForAudio = aiText;
-
-    // Xóa dấu in đậm, in nghiêng
     textForAudio = textForAudio.replace(/[*_#]/g, "");
-
-    // Xóa SẠCH Pinyin nằm trong ngoặc vuông (Do lệnh bắt buộc ở trên)
     textForAudio = textForAudio.replace(/\[.*?\]/g, "");
-
-    // Đề phòng AI lú lẫn vẫn trả về kiểu cũ (Huānyíng nǐ! - Chào mừng) -> Cắt bay phần Pinyin trước dấu gạch ngang
     textForAudio = textForAudio.replace(/\([A-Za-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s!?.,]+[-–—:]\s*/gi, "(");
 
-    // 3. TÁCH CÂU THÔNG MINH (TRUNG ĐỌC TRUNG, VIỆT ĐỌC VIỆT)
+    // 3. TÁCH CÂU VÀ LẤY MP3 SONG SONG (TỐI ƯU HÓA TỐC ĐỘ)
     let audioBase64 = "";
     try {
       const segments = [];
@@ -101,21 +94,34 @@ module.exports = async function (req, res) {
         segments.push({ text: currentSegment, lang: currentLang });
       }
 
-      const audioBuffers = [];
-
-      for (let seg of segments) {
-        // Lọc an toàn: Chỉ đọc nếu có chữ cái hoặc số (bỏ qua các cụm chỉ toàn dấu câu)
+      // Xử lý ném TẤT CẢ các luồng request lên Google cùng lúc (Parallel Fetching)
+      const fetchPromises = segments.map(async (seg, index) => {
         if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(seg.text)) {
           const safeTextToRead = encodeURIComponent(seg.text.substring(0, 200));
           const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${seg.lang}&q=${safeTextToRead}`;
           
-          const audioResponse = await fetch(ttsUrl);
-          if (audioResponse.ok) {
-            const arrayBuffer = await audioResponse.arrayBuffer();
-            audioBuffers.push(Buffer.from(arrayBuffer));
+          try {
+            const audioResponse = await fetch(ttsUrl);
+            if (audioResponse.ok) {
+              const arrayBuffer = await audioResponse.arrayBuffer();
+              return { index, buffer: Buffer.from(arrayBuffer) };
+            }
+          } catch (e) {
+             console.warn("Lỗi tải MP3 cho segment:", e);
           }
         }
-      }
+        return { index, buffer: null };
+      });
+
+      // Chờ tất cả request hoàn thành
+      const fetchedResults = await Promise.all(fetchPromises);
+      
+      // Sắp xếp lại âm thanh theo đúng thứ tự mảng ban đầu
+      fetchedResults.sort((a, b) => a.index - b.index);
+      
+      const audioBuffers = fetchedResults
+        .filter(res => res.buffer !== null)
+        .map(res => res.buffer);
 
       if (audioBuffers.length > 0) {
         const combinedBuffer = Buffer.concat(audioBuffers);
@@ -127,8 +133,8 @@ module.exports = async function (req, res) {
     }
 
     return res.status(200).json({
-      result: aiText,          // Nguyên vẹn có đủ Pinyin, in đậm để hiển thị
-      audioBase64: audioBase64 // File âm thanh đã được "làm sạch" tinh tươm
+      result: aiText,          
+      audioBase64: audioBase64 
     });
 
   } catch (error) {
