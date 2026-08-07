@@ -1979,32 +1979,44 @@ async function callGeminiChatVoice(message, historyForApi = []) {
 
   const vocabText = appData.vocab
     .filter(v => !lesson || v.sheet === lesson)
-    .slice(0, 30)
+    .slice(0, 20)
     .map(v => `${v.hanzi} (${v.pinyin}) = ${v.nghia}`)
     .join("; ");
 
-  const voiceName = document.getElementById("chatVoiceSelect")?.value || "Kore";
+  const historyText = historyForApi
+    .slice(-6)
+    .map(m => `${m.role === "user" ? "Học viên" : "Thầy"}: ${m.content}`)
+    .join("\n");
 
-  const response = await fetch("/api/chat-voice", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      message,
-      history: historyForApi,
-      vocabText,
-      voiceName
-    })
-  });
+  const prompt = `
+Bạn là gia sư tiếng Trung đang đối thoại trực tiếp với học viên.
 
-  const data = await response.json();
+Cách trả lời:
+- Trả lời ngắn, tự nhiên, như 2 người đang nói chuyện.
+- Không viết dài.
+- Nếu học viên nói tiếng Việt, trả lời tiếng Việt và thêm 1 câu tiếng Trung ngắn nếu phù hợp.
+- Nếu học viên nói tiếng Trung, trả lời bằng tiếng Trung đơn giản, kèm nghĩa tiếng Việt ngắn.
+- Nếu học viên sai, sửa rất nhẹ nhàng.
+- Không dùng markdown dài.
+- Tối đa 3 đến 5 câu.
 
-  if (!response.ok) {
-    throw new Error(data.error || "Lỗi gọi /api/chat-voice");
-  }
+Từ vựng bài hiện tại:
+${vocabText || "Không có."}
 
-  return data;
+Lịch sử gần đây:
+${historyText || "Chưa có."}
+
+Học viên vừa nói:
+${message}
+`;
+
+  const text = await callGeminiText(prompt, 0.45);
+
+  return {
+    text,
+    audioBase64: "",
+    mimeType: ""
+  };
 }
 
 function renderChatMessages(){
@@ -2083,12 +2095,9 @@ async function sendChatMessage(textFromVoice = ""){
 
     renderChatMessages();
 
-    if(result.audioBase64 && result.mimeType){
-      playBase64Audio(result.audioBase64, result.mimeType);
-    }else{
-      console.warn("Không có audio Gemini, fallback sang giọng trình duyệt.");
-      speakMixedTextFallback(aiText);
-    }
+speakMixedTextFallback(aiText);
+
+
   }catch(error){
     chatHistory = chatHistory.filter(m => !m.loading);
 
