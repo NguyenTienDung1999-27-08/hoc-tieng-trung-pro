@@ -484,7 +484,7 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
       <div>
         <h2 style="margin:0;">💬 Trò chuyện với AI</h2>
         <div class="small-note">
-          Nhập chữ hoặc bấm mic để nói. AI sẽ trả lời và trình duyệt sẽ tự động đọc.
+          Nhập chữ hoặc bấm mic để nói. AI sẽ trả lời và phát âm thanh siêu mượt bằng Google Cloud.
         </div>
       </div>
 
@@ -515,6 +515,9 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
       </div>
 
       <div class="small-note" id="chatMicStatus">Mic: Sẵn sàng (Nhớ chọn đúng ngôn ngữ Mic ở góc phải nhé!)</div>
+      
+      <!-- Thẻ Audio ẩn để phát âm thanh từ Google Cloud TTS qua Base64 -->
+      <audio id="chatAudioPlayer" style="display:none;"></audio>
     </div>
   </div>
 </section>
@@ -593,8 +596,10 @@ function shuffleArray(arr){
   return a;
 }
 
-/* GEMINI - GỌI QUA VERCEL BACKEND */
+/* GEMINI CHUNG */
 async function callGeminiText(promptText, temperature = 0.3) {
+  // Vì backend cũ (api/chat) giờ đã được viết lại cho riêng Chat AI Voice,
+  // nên các tính năng phụ khác (Chấm điểm, tạo đề) tạm mượn luôn cấu trúc mới.
   const response = await fetch('/api/chat', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -602,8 +607,7 @@ async function callGeminiText(promptText, temperature = 0.3) {
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Lỗi Server");
-  const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || data?.result;
-  if (!txt) throw new Error("AI không trả về kết quả.");
+  const txt = data.result || "AI không trả về kết quả.";
   return txt.trim();
 }
 
@@ -976,7 +980,7 @@ function onLessonChange(area){
   }
 }
 
-/* TTS */
+/* TTS CHO DỊCH ĐOẠN */
 let currentSpeechText = "";
 let currentSpeechOffset = 0;
 let currentUtterance = null;
@@ -1927,14 +1931,16 @@ function resetWriterProgressForLesson(){
 }
 
 /* =========================================
-   CHAT AI VOICE (FIXED THE LOGIC) 
+   CHAT AI VOICE (DÙNG CLOUD GOOGLE TRANSLATE) 
    ========================================= */
 let chatHistory = [];
 let lastAIReply = "";
+let lastAIAudioUrl = "";
 let chatRecognition = null;
 let isChatRecording = false;
 
-async function callGeminiChatVoice(message, historyForApi = []) {
+// Hàm gọi API mới, nhận cả Text và Base64 Audio
+async function callGeminiChatVoiceCloud(message, historyForApi = []) {
   const lesson =
     document.getElementById("gridLessonSelect")?.value ||
     document.getElementById("transLessonSelect")?.value ||
@@ -1968,13 +1974,16 @@ ${historyText || "Chưa có."}
 Học viên vừa nói:
 ${message}`;
 
-  try {
-    const text = await callGeminiText(prompt, 0.45);
-    return text;
-  } catch (error) {
-    console.error("Lỗi gọi Gemini Chat API:", error);
-    throw error;
-  }
+  const response = await fetch('/api/chat', {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: prompt, temperature: 0.45 })
+  });
+  
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Lỗi Server API");
+  
+  return data; // Trả về object: { result: "văn bản", audioBase64: "dữ liệu âm thanh" }
 }
 
 function renderChatMessages(){
@@ -1999,6 +2008,30 @@ function renderChatMessages(){
   }).join("");
 
   box.scrollTop = box.scrollHeight;
+}
+
+// Xử lý phát file Audio Base64 lấy từ Cloud
+function playBase64Audio(base64Data) {
+  const audio = document.getElementById("chatAudioPlayer");
+  if(!audio) return;
+  
+  // Dọn file âm thanh cũ
+  if(lastAIAudioUrl) {
+    URL.revokeObjectURL(lastAIAudioUrl);
+  }
+  
+  // Giải mã Base64 thành file
+  const byteChars = atob(base64Data);
+  const byteNums = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNums[i] = byteChars.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNums);
+  const blob = new Blob([byteArray], { type: 'audio/mpeg' });
+  
+  lastAIAudioUrl = URL.createObjectURL(blob);
+  audio.src = lastAIAudioUrl;
+  audio.play().catch(e => console.warn("Lỗi không tự phát được âm thanh:", e));
 }
 
 async function sendChatMessage(textFromVoice = ""){
@@ -2036,19 +2069,19 @@ async function sendChatMessage(textFromVoice = ""){
   btn.innerHTML = "⏳ Đang gửi...";
 
   try{
-    const aiText = await callGeminiChatVoice(userMessage, historyForApi);
-    lastAIReply = aiText || "Thầy không nghe rõ, Trò có thể nhắc lại không?";
+    // Gọi API xịn, nhận về cả text và âm thanh
+    const responseData = await callGeminiChatVoiceCloud(userMessage, historyForApi);
+    lastAIReply = responseData.result || "Thầy không nghe rõ, Trò có thể nhắc lại không?";
+    const audioB64 = responseData.audioBase64;
 
     chatHistory = chatHistory.filter(m => !m.loading);
-
-    chatHistory.push({
-      role:"ai",
-      content: lastAIReply
-    });
-
+    chatHistory.push({ role:"ai", content: lastAIReply });
     renderChatMessages();
     
-    speakMixedTextFallback(lastAIReply);
+    // Nếu Vercel lấy được file âm thanh từ Google Cloud, phát nó lên!
+    if (audioB64) {
+      playBase64Audio(audioB64);
+    }
 
   }catch(error){
     console.error(error);
@@ -2067,14 +2100,20 @@ async function sendChatMessage(textFromVoice = ""){
 }
 
 function replayLastAIAudio(){
-  if(lastAIReply){
-    speakMixedTextFallback(lastAIReply);
+  const audio = document.getElementById("chatAudioPlayer");
+  if(audio && audio.src) {
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
   } else {
-    alert("Chưa có câu trả lời AI để đọc lại.");
+    alert("Chưa có âm thanh để phát lại.");
   }
 }
 
 function pauseChatAudio(){
+  const audio = document.getElementById("chatAudioPlayer");
+  if(audio && !audio.paused){
+    audio.pause();
+  }
   if(window.speechSynthesis){
     window.speechSynthesis.cancel();
   }
@@ -2172,34 +2211,6 @@ function toggleChatMic(){
     btn.innerHTML = "🎤 Ghi âm";
     status.innerText = "Mic: Không bật được.";
   }
-}
-
-function speakMixedTextFallback(text){
-  if(!window.speechSynthesis) return;
-
-  // Hủy tiến trình đọc cũ để không bị dồn
-  window.speechSynthesis.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(String(text || ""));
-  utterance.lang = detectMainSpeechLang(text);
-  
-  // Đã tăng tốc độ đọc lên 1.2 (nhanh hơn mức 0.92 cũ)
-  utterance.rate = 5; 
-  utterance.pitch = 1;
-
-  window.speechSynthesis.speak(utterance);
-}
-
-function detectMainSpeechLang(text){
-  const s = String(text || "");
-  const chineseCount = (s.match(/[\u4e00-\u9fff]/g) || []).length;
-  const vietnameseCount = (
-    s.match(/[ăâêôơưđĂÂÊÔƠƯĐáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/g) || []
-  ).length;
-
-  if(chineseCount >= 3) return "zh-CN";
-  if(vietnameseCount >= 2) return "vi-VN";
-  return "zh-CN";
 }
 
 document.addEventListener("keydown", function(e){
