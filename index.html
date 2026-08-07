@@ -2184,7 +2184,7 @@ function speakMixedTextFallback(text){
   utterance.lang = detectMainSpeechLang(text);
   
   // Đã tăng tốc độ đọc lên 1.2 (nhanh hơn mức 0.92 cũ)
-  utterance.rate = 1.2; 
+  utterance.rate = 5; 
   utterance.pitch = 1;
 
   window.speechSynthesis.speak(utterance);
