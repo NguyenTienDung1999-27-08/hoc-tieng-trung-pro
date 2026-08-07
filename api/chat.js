@@ -24,6 +24,9 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
+    // Tiêm lệnh BẮT BUỘC định dạng Pinyin vào thẳng não Gemini
+    const finalPrompt = prompt + "\n\n(LƯU Ý BẮT BUỘC TỪ HỆ THỐNG: Nếu có viết Pinyin, BẮT BUỘC phải đặt toàn bộ Pinyin vào trong ngoặc vuông [...]. Ví dụ: 欢迎你！ [Huānyíng nǐ!] (Chào mừng em!). Tuyệt đối không dùng định dạng khác để tránh lỗi hệ thống âm thanh.)";
+
     // 1. Gọi Gemini 3.5-flash
     const model = process.env.GEMINI_TEXT_MODEL || "gemini-3.5-flash"; 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -32,7 +35,7 @@ module.exports = async function (req, res) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
         generationConfig: {
           temperature: temperature || 0.6,
           topP: 0.9,
@@ -51,20 +54,19 @@ module.exports = async function (req, res) {
       throw new Error("Gemini không trả về nội dung.");
     }
 
-    // 2. TIỀN XỬ LÝ VĂN BẢN TRƯỚC KHI TẠO ÂM THANH
-    // Giữ nguyên aiText để trả về cho Frontend in ra màn hình đẹp đẽ.
-    // Dọn dẹp một bản copy (textForAudio) chỉ để gửi cho âm thanh đọc.
+    // 2. TIỀN XỬ LÝ VĂN BẢN (LỘT SẠCH PINYIN VÀ DẤU IN ĐẬM ĐỂ LÀM AUDIO)
     let textForAudio = aiText;
 
-    // Xóa dấu markdown (in đậm, in nghiêng)
+    // Xóa dấu in đậm, in nghiêng
     textForAudio = textForAudio.replace(/[*_#]/g, "");
 
-    // Xóa Pinyin nằm trong ngoặc tròn hoặc ngoặc vuông. 
-    // Regex này bắt toàn bộ chữ cái Latin và các ký tự dấu thanh điệu (āáǎà...)
-    const pinyinRegex = /[\(\[]\s*[a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\s*[\)\]]/gi;
-    textForAudio = textForAudio.replace(pinyinRegex, "");
+    // Xóa SẠCH Pinyin nằm trong ngoặc vuông (Do lệnh bắt buộc ở trên)
+    textForAudio = textForAudio.replace(/\[.*?\]/g, "");
 
-    // 3. TÁCH CÂU THÔNG MINH (TRUNG ĐI ĐƯỜNG TRUNG, VIỆT ĐI ĐƯỜNG VIỆT)
+    // Đề phòng AI lú lẫn vẫn trả về kiểu cũ (Huānyíng nǐ! - Chào mừng) -> Cắt bay phần Pinyin trước dấu gạch ngang
+    textForAudio = textForAudio.replace(/\([A-Za-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s!?.,]+[-–—:]\s*/gi, "(");
+
+    // 3. TÁCH CÂU THÔNG MINH (TRUNG ĐỌC TRUNG, VIỆT ĐỌC VIỆT)
     let audioBase64 = "";
     try {
       const segments = [];
@@ -102,7 +104,7 @@ module.exports = async function (req, res) {
       const audioBuffers = [];
 
       for (let seg of segments) {
-        // Chỉ gửi đi lấy giọng đọc nếu khúc đó thực sự chứa chữ/số (lọc bỏ các đoạn chỉ toàn dấu phẩy)
+        // Lọc an toàn: Chỉ đọc nếu có chữ cái hoặc số (bỏ qua các cụm chỉ toàn dấu câu)
         if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(seg.text)) {
           const safeTextToRead = encodeURIComponent(seg.text.substring(0, 200));
           const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${seg.lang}&q=${safeTextToRead}`;
@@ -125,8 +127,8 @@ module.exports = async function (req, res) {
     }
 
     return res.status(200).json({
-      result: aiText,          // Vẫn trả nguyên vẹn cho trình duyệt in ra màn hình
-      audioBase64: audioBase64 // Trả MP3 mượt mà đã được lột sạch Pinyin và in đậm
+      result: aiText,          // Nguyên vẹn có đủ Pinyin, in đậm để hiển thị
+      audioBase64: audioBase64 // File âm thanh đã được "làm sạch" tinh tươm
     });
 
   } catch (error) {
