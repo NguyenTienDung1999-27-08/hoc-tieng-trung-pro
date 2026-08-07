@@ -1,12 +1,22 @@
-export default async function handler(req, res) {
+module.exports = async function (req, res) {
+  // CORS config (phòng trường hợp Vercel chặn request)
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+    return res.status(405).json({ error: "Chỉ chấp nhận phương thức POST" });
   }
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "Thiếu GEMINI_API_KEY trong Environment Variables." });
+      return res.status(500).json({ error: "Thiếu GEMINI_API_KEY trên Vercel." });
     }
 
     const { prompt, temperature } = req.body || {};
@@ -14,7 +24,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    // 1. GỌI GEMINI ĐỂ LẤY VĂN BẢN TRẢ LỜI
+    // 1. Gọi Gemini
     const model = process.env.GEMINI_TEXT_MODEL || "gemini-1.5-flash"; 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -41,7 +51,7 @@ export default async function handler(req, res) {
       throw new Error("Gemini không trả về nội dung.");
     }
 
-    // 2. GỌI GOOGLE TRANSLATE CLOUD ĐỂ LẤY FILE ÂM THANH
+    // 2. Gọi Google Cloud TTS
     let audioBase64 = "";
     try {
       const safeTextToRead = encodeURIComponent(aiText.substring(0, 200));
@@ -53,19 +63,18 @@ export default async function handler(req, res) {
         audioBase64 = Buffer.from(arrayBuffer).toString('base64');
       }
     } catch (ttsError) {
-      console.warn("Lỗi không lấy được âm thanh từ Google Cloud:", ttsError);
+      console.warn("Lỗi TTS:", ttsError);
     }
 
-    // 3. TRẢ VỀ CẢ CHỮ VÀ ÂM THANH CHO TRÌNH DUYỆT
     return res.status(200).json({
       result: aiText,
       audioBase64: audioBase64
     });
 
   } catch (error) {
-    console.error("Lỗi Vercel API:", error);
+    console.error("Lỗi Server:", error);
     return res.status(500).json({
       error: error.message || "Lỗi server không xác định."
     });
   }
-}
+};
