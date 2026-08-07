@@ -1,5 +1,5 @@
 module.exports = async function (req, res) {
-  // CORS config (phòng trường hợp Vercel chặn request)
+  // CORS config
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -24,7 +24,7 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    // 1. Gọi Gemini
+    // 1. Gọi Gemini 3.5-flash
     const model = process.env.GEMINI_TEXT_MODEL || "gemini-3.5-flash"; 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -51,17 +51,36 @@ module.exports = async function (req, res) {
       throw new Error("Gemini không trả về nội dung.");
     }
 
-    // 2. Gọi Google Cloud TTS
+    // 2. TÁCH CÂU VÀ LẤY AUDIO ĐÚNG GIỌNG (TRUNG RIÊNG, VIỆT RIÊNG)
     let audioBase64 = "";
     try {
-      const safeTextToRead = encodeURIComponent(aiText.substring(0, 200));
-      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=zh-CN&q=${safeTextToRead}`;
-      
-      const audioResponse = await fetch(ttsUrl);
-      if (audioResponse.ok) {
-        const arrayBuffer = await audioResponse.arrayBuffer();
-        audioBase64 = Buffer.from(arrayBuffer).toString('base64');
+      // Băm câu trả lời thành mảng: Chữ Hán nằm riêng, chữ Latin/Việt nằm riêng
+      const chunks = aiText.split(/([\u4e00-\u9fff]+)/g).filter(c => c.trim().length > 0);
+      const audioBuffers = [];
+
+      for (let chunk of chunks) {
+        // Kiểm tra xem đoạn này có chứa chữ Hán hay không
+        const isChinese = /[\u4e00-\u9fff]/.test(chunk);
+        
+        // Cú pháp thần thánh: Có Hán -> giọng Trung (zh-CN), Không Hán -> giọng Việt (vi)
+        const tl = isChinese ? "zh-CN" : "vi"; 
+        
+        const safeTextToRead = encodeURIComponent(chunk.substring(0, 200));
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${safeTextToRead}`;
+        
+        const audioResponse = await fetch(ttsUrl);
+        if (audioResponse.ok) {
+          const arrayBuffer = await audioResponse.arrayBuffer();
+          audioBuffers.push(Buffer.from(arrayBuffer));
+        }
       }
+
+      // MP3 hỗ trợ ghép nối nhị phân trực tiếp. Gộp tất cả lại thành 1 luồng âm thanh duy nhất!
+      if (audioBuffers.length > 0) {
+        const combinedBuffer = Buffer.concat(audioBuffers);
+        audioBase64 = combinedBuffer.toString('base64');
+      }
+
     } catch (ttsError) {
       console.warn("Lỗi TTS:", ttsError);
     }
