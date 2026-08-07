@@ -1928,57 +1928,13 @@ function resetWriterProgressForLesson(){
 }
 
 /* =========================================
-   CHAT AI VOICE (FIXED THE LOGIC) 
-   ========================================= */
+/* CHAT AI SIMPLE: MIC -> TEXT -> GEMINI -> BROWSER SPEECH */
 let chatHistory = [];
 let lastAIReply = "";
 let chatRecognition = null;
 let isChatRecording = false;
-
-async function callGeminiChatVoice(message, historyForApi = []) {
-  const lesson =
-    document.getElementById("gridLessonSelect")?.value ||
-    document.getElementById("transLessonSelect")?.value ||
-    "";
-
-  const vocabText = appData.vocab
-    .filter(v => !lesson || v.sheet === lesson)
-    .slice(0, 20)
-    .map(v => `${v.hanzi} (${v.pinyin}) = ${v.nghia}`)
-    .join("; ");
-
-  const historyText = historyForApi
-    .slice(-6)
-    .map(m => `${m.role === "user" ? "Học viên" : "Thầy"}: ${m.content}`)
-    .join("\n");
-
-  const prompt = `Bạn là gia sư tiếng Trung đang đối thoại trực tiếp với học viên.
-
-Cách trả lời:
-- Trả lời ngắn, tự nhiên, như 2 người đang nói chuyện.
-- Nếu học viên nói tiếng Việt, trả lời tiếng Việt và thêm 1 câu tiếng Trung ngắn nếu phù hợp.
-- Nếu học viên nói tiếng Trung, trả lời bằng tiếng Trung đơn giản, kèm nghĩa tiếng Việt ngắn.
-- Tối đa 3 đến 5 câu.
-
-Từ vựng bài hiện tại:
-${vocabText || "Không có."}
-
-Lịch sử gần đây:
-${historyText || "Chưa có."}
-
-Học viên vừa nói:
-${message}`;
-
-  try {
-    // Để fix lỗi kẹt (timeout), ta sẽ bypass hàm backend gọi TTS của Vercel (vì nó dễ bị block do chạy quá 10s).
-    // Gọi thẳng vào hàm text, rồi lấy text đó trả về cho trình duyệt đọc (như Dũng yêu cầu)
-    const text = await callGeminiText(prompt, 0.45);
-    return text;
-  } catch (error) {
-    console.error("Lỗi gọi Gemini Chat API:", error);
-    throw error;
-  }
-}
+let speechQueue = [];
+let isSpeakingQueue = false;
 
 function renderChatMessages(){
   const box = document.getElementById("chatMessages");
@@ -1987,7 +1943,7 @@ function renderChatMessages(){
   if(chatHistory.length === 0){
     box.innerHTML = `
       <div class="chat-msg system">
-        Hãy nhập tin nhắn hoặc bấm mic để nói chuyện với AI.
+        Hãy nhập tin nhắn hoặc bấm mic để bắt đầu trò chuyện.
       </div>
     `;
     return;
@@ -2004,30 +1960,80 @@ function renderChatMessages(){
   box.scrollTop = box.scrollHeight;
 }
 
+function getChatLessonVocabText(){
+  const lesson =
+    document.getElementById("gridLessonSelect")?.value ||
+    document.getElementById("transLessonSelect")?.value ||
+    "";
+
+  return appData.vocab
+    .filter(v => !lesson || v.sheet === lesson)
+    .slice(0, 20)
+    .map(v => `${v.hanzi} (${v.pinyin}) = ${v.nghia}`)
+    .join("; ");
+}
+
+function buildChatPrompt(userMessage, historyForPrompt){
+  const vocabText = getChatLessonVocabText();
+
+  const historyText = historyForPrompt
+    .slice(-6)
+    .map(m => `${m.role === "user" ? "Học viên" : "Thầy"}: ${m.content}`)
+    .join("\n");
+
+  return `
+Bạn là gia sư tiếng Trung đang trò chuyện trực tiếp với học viên.
+
+Quy tắc trả lời:
+- Trả lời ngắn, tự nhiên, giống 2 người đang đối thoại.
+- Không viết dài dòng.
+- Không dùng markdown phức tạp.
+- Nếu học viên nói tiếng Việt, trả lời tiếng Việt là chính.
+- Nếu phù hợp, thêm 1 câu tiếng Trung ngắn kèm pinyin và nghĩa.
+- Nếu học viên nói tiếng Trung sai, sửa nhẹ nhàng.
+- Tối đa 3 đến 5 câu.
+- Câu trả lời phải dễ đọc thành tiếng.
+
+Từ vựng bài hiện tại:
+${vocabText || "Không có từ vựng."}
+
+Lịch sử gần đây:
+${historyText || "Chưa có."}
+
+Học viên vừa nói:
+${userMessage}
+`;
+}
+
 async function sendChatMessage(textFromVoice = ""){
   const input = document.getElementById("chatInput");
   const btn = document.getElementById("btnSendChat");
+  const status = document.getElementById("chatMicStatus");
 
-  const userMessage = String(textFromVoice || input.value || "").trim();
+  const userMessage = String(textFromVoice || input?.value || "").trim();
 
   if(!userMessage){
     alert("Bạn chưa nhập nội dung.");
     return;
   }
 
-  const historyForApi = chatHistory
+  stopChatSpeech();
+
+  const historyForPrompt = chatHistory
     .filter(m => !m.loading)
-    .slice(-10)
-    .map(m => ({ role: m.role, content: m.content }));
+    .slice(-8)
+    .map(m => ({
+      role:m.role,
+      content:m.content
+    }));
 
   chatHistory.push({
     role:"user",
     content:userMessage
   });
 
-  input.value = "";
+  if(input) input.value = "";
 
-  // Sửa thông báo để không bị hiểu nhầm là kẹt tạo giọng
   chatHistory.push({
     role:"ai",
     content:"⏳ Thầy đang suy nghĩ...",
@@ -2036,63 +2042,65 @@ async function sendChatMessage(textFromVoice = ""){
 
   renderChatMessages();
 
-  btn.disabled = true;
-  btn.innerHTML = "⏳ Đang gửi...";
+  if(btn){
+    btn.disabled = true;
+    btn.innerHTML = "⏳ Đang gửi...";
+  }
+
+  if(status) status.innerText = "AI: Đang trả lời...";
 
   try{
-    const aiText = await callGeminiChatVoice(userMessage, historyForApi);
-    lastAIReply = aiText || "Thầy không nghe rõ, Trò có thể nhắc lại không?";
+    const prompt = buildChatPrompt(userMessage, historyForPrompt);
+    const aiText = await callGeminiText(prompt, 0.45);
 
-    // Xóa tin nhắn loading
+    lastAIReply = aiText;
+
     chatHistory = chatHistory.filter(m => !m.loading);
 
     chatHistory.push({
       role:"ai",
-      content: lastAIReply
+      content:aiText
     });
 
     renderChatMessages();
-    
-    // Yêu cầu: Trình duyệt tự động đọc (Đã xử lý gọi hàm fallback TTS của trình duyệt)
-    speakMixedTextFallback(lastAIReply);
 
+    if(status) status.innerText = "AI: Đã trả lời, đang đọc.";
+    speakAIReply(aiText);
   }catch(error){
     console.error(error);
-    // Xóa tin nhắn loading và in ra lỗi để không bị kẹt nữa
+
     chatHistory = chatHistory.filter(m => !m.loading);
 
     chatHistory.push({
       role:"ai",
-      content:`❌ Lỗi: AI không phản hồi được. Xin thử lại. (${error.message})`
+      content:`❌ Không gọi được AI: ${error.message}`
     });
 
     renderChatMessages();
+
+    if(status) status.innerText = "AI: Lỗi khi gọi Gemini.";
   }finally{
-    btn.disabled = false;
-    btn.innerHTML = "Gửi";
-  }
-}
-
-function replayLastAIAudio(){
-  // Bỏ logic check file audioBase64 cũ, ép nó luôn luôn gọi hàm đọc văn bản của trình duyệt
-  if(lastAIReply){
-    speakMixedTextFallback(lastAIReply);
-  } else {
-    alert("Chưa có câu trả lời AI để đọc lại.");
-  }
-}
-
-function pauseChatAudio(){
-  if(window.speechSynthesis){
-    window.speechSynthesis.cancel();
+    if(btn){
+      btn.disabled = false;
+      btn.innerHTML = "Gửi";
+    }
   }
 }
 
 function clearChatHistory(){
   if(!confirm("Xóa toàn bộ hội thoại hiện tại?")) return;
+
+  stopChatSpeech();
+
   chatHistory = [];
   lastAIReply = "";
-  pauseChatAudio();
+
+  const input = document.getElementById("chatInput");
+  if(input) input.value = "";
+
+  const status = document.getElementById("chatMicStatus");
+  if(status) status.innerText = "Mic: Sẵn sàng";
+
   renderChatMessages();
 }
 
@@ -2101,124 +2109,357 @@ function toggleChatMic(){
   const btn = document.getElementById("btnChatMic");
   const status = document.getElementById("chatMicStatus");
   const input = document.getElementById("chatInput");
-  const langSelect = document.getElementById("chatMicLangSelect");
 
   if(!SR){
-    alert("Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Nên dùng Chrome hoặc Edge.");
+    alert("Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Bạn nên dùng Chrome hoặc Edge.");
     return;
   }
 
   if(isChatRecording && chatRecognition){
-    try{ chatRecognition.stop(); }catch{}
+    try{
+      chatRecognition.stop();
+    }catch{}
     return;
   }
+
+  stopChatSpeech();
 
   try{
     chatRecognition = new SR();
 
-    // Sửa lỗi đọc tiếng Việt ra tiếng Trung: lấy chính xác value từ ô Select
-    chatRecognition.lang = langSelect ? langSelect.value : "vi-VN";
+    const selectedLang = document.getElementById("chatMicLangSelect")?.value || "vi-VN";
+
+    chatRecognition.lang = selectedLang;
     chatRecognition.continuous = false;
     chatRecognition.interimResults = true;
-    chatRecognition.maxAlternatives = 3;
+    chatRecognition.maxAlternatives = 1;
 
     let finalText = "";
+    let lastInterimText = "";
+    let hadError = false;
 
     chatRecognition.onstart = () => {
       isChatRecording = true;
-      btn.classList.add("recording");
-      btn.innerHTML = "🎙️ Đang nghe...";
-      status.innerText = "Mic: Đang nghe, nói xong app sẽ tự gửi.";
-      input.value = "";
-      pauseChatAudio(); // Dừng đọc AI ngay khi bắt đầu thu âm
+
+      if(btn){
+        btn.classList.add("recording");
+        btn.innerHTML = "🎙️ Đang nghe, bấm để dừng";
+      }
+
+      if(status){
+        const label =
+          selectedLang === "vi-VN" ? "tiếng Việt" :
+          selectedLang === "zh-CN" ? "tiếng Trung" :
+          "tiếng Anh";
+
+        status.innerText = `Mic: Đang nghe ${label}...`;
+      }
+
+      if(input) input.value = "";
     };
 
     chatRecognition.onresult = event => {
       let interimText = "";
+
       for(let i = event.resultIndex; i < event.results.length; i++){
         const transcript = event.results[i][0].transcript || "";
+
         if(event.results[i].isFinal){
-          finalText += transcript;
+          finalText += transcript + " ";
         }else{
           interimText += transcript;
         }
       }
-      input.value = (finalText + interimText).trim();
+
+      lastInterimText = interimText;
+
+      if(input){
+        input.value = (finalText + interimText).trim();
+      }
     };
 
     chatRecognition.onerror = event => {
       console.warn("Speech recognition error:", event);
-      if(event.error === "not-allowed"){
-        status.innerText = "Mic: Bạn chưa cấp quyền micro.";
-      }else if(event.error === "no-speech"){
-        status.innerText = "Mic: Không nghe thấy tiếng nói.";
-      }else{
-        status.innerText = "Mic: Có lỗi khi nghe.";
+      hadError = true;
+
+      if(status){
+        if(event.error === "not-allowed"){
+          status.innerText = "Mic: Bạn chưa cấp quyền micro.";
+        }else if(event.error === "no-speech"){
+          status.innerText = "Mic: Không nghe thấy tiếng nói.";
+        }else if(event.error === "network"){
+          status.innerText = "Mic: Lỗi mạng khi nhận diện giọng nói.";
+        }else{
+          status.innerText = `Mic: Lỗi ${event.error || "không xác định"}.`;
+        }
       }
     };
 
     chatRecognition.onend = async () => {
       isChatRecording = false;
-      btn.classList.remove("recording");
-      btn.innerHTML = "🎤 Ghi âm";
 
-      const text = (finalText || input.value || "").trim();
+      if(btn){
+        btn.classList.remove("recording");
+        btn.innerHTML = "🎤 Ghi âm";
+      }
+
+      const text = (
+        finalText ||
+        input?.value ||
+        lastInterimText ||
+        ""
+      ).trim();
 
       if(text){
-        status.innerText = "Mic: Đã nghe xong, đang gửi AI.";
+        if(status) status.innerText = "Mic: Đã nghe xong, đang gửi AI.";
         await sendChatMessage(text);
-        status.innerText = "Mic: Sẵn sàng (Nhớ chọn đúng ngôn ngữ Mic ở góc phải nhé!)";
+        if(status) status.innerText = "Mic: Sẵn sàng";
       }else{
-        status.innerText = "Mic: Không nghe rõ nội dung.";
+        if(status && !hadError){
+          status.innerText = "Mic: Không nghe rõ nội dung.";
+        }
       }
     };
 
     chatRecognition.start();
   }catch(err){
     console.error(err);
+
     isChatRecording = false;
-    btn.classList.remove("recording");
-    btn.innerHTML = "🎤 Ghi âm";
-    status.innerText = "Mic: Không bật được.";
+
+    if(btn){
+      btn.classList.remove("recording");
+      btn.innerHTML = "🎤 Ghi âm";
+    }
+
+    if(status){
+      status.innerText = "Mic: Không bật được.";
+    }
   }
 }
 
-function speakMixedTextFallback(text){
-  if(!window.speechSynthesis) return;
+function stopChatSpeech(){
+  speechQueue = [];
+  isSpeakingQueue = false;
 
-  // Hủy tiến trình đọc cũ để không bị dồn
-  window.speechSynthesis.cancel();
+  if(window.speechSynthesis){
+    window.speechSynthesis.cancel();
+  }
+}
 
-  const utterance = new SpeechSynthesisUtterance(String(text || ""));
-  utterance.lang = detectMainSpeechLang(text);
-  utterance.rate = 0.92;
+function replayLastAIReply(){
+  if(!lastAIReply){
+    alert("Chưa có câu trả lời AI để nghe lại.");
+    return;
+  }
+
+  speakAIReply(lastAIReply);
+}
+
+function replayLastAIAudio(){
+  replayLastAIReply();
+}
+
+function pauseChatAudio(){
+  stopChatSpeech();
+}
+
+function speakAIReply(text){
+  const cleanText = String(text || "").trim();
+
+  if(!cleanText){
+    alert("Không có nội dung để đọc.");
+    return;
+  }
+
+  if(!window.speechSynthesis){
+    alert("Trình duyệt này không hỗ trợ đọc giọng nói.");
+    return;
+  }
+
+  stopChatSpeech();
+
+  const speakMode = document.getElementById("chatSpeakLangSelect")?.value || "auto";
+
+  let segments = [];
+
+  if(speakMode === "auto"){
+    segments = splitTextForAutoSpeech(cleanText);
+  }else{
+    segments = chunkText(cleanText).map(t => ({
+      text:t,
+      lang:speakMode
+    }));
+  }
+
+  speechQueue = segments.filter(s => s.text.trim());
+  isSpeakingQueue = true;
+
+  setTimeout(() => {
+    speakNextSegment();
+  }, 80);
+}
+
+function speakNextSegment(){
+  if(!isSpeakingQueue || speechQueue.length === 0){
+    isSpeakingQueue = false;
+    return;
+  }
+
+  const item = speechQueue.shift();
+
+  const utterance = new SpeechSynthesisUtterance(item.text);
+  utterance.lang = item.lang || "vi-VN";
+  utterance.rate = item.lang === "zh-CN" ? 1.08 : 1.15;
+
+
   utterance.pitch = 1;
+
+  const voice = pickVoiceForLang(item.lang);
+  if(voice) utterance.voice = voice;
+
+  utterance.onend = () => {
+    setTimeout(speakNextSegment, 80);
+  };
+
+  utterance.onerror = event => {
+    console.warn("Speech synthesis error:", event);
+    setTimeout(speakNextSegment, 80);
+  };
 
   window.speechSynthesis.speak(utterance);
 }
 
-function detectMainSpeechLang(text){
+function splitTextForAutoSpeech(text){
+  const source = String(text || "");
+  const parts = [];
+  const regex = /([\u4e00-\u9fff，。！？、；：“”《》（）\s]+)/g;
+
+  let lastIndex = 0;
+  let match;
+
+  while((match = regex.exec(source)) !== null){
+    const before = source.slice(lastIndex, match.index);
+    const chinese = match[0];
+
+    if(before.trim()){
+      chunkText(before).forEach(t => {
+        parts.push({
+          text:t,
+          lang:detectVietnameseOrEnglish(t)
+        });
+      });
+    }
+
+    if(chinese.trim()){
+      chunkText(chinese).forEach(t => {
+        parts.push({
+          text:t,
+          lang:"zh-CN"
+        });
+      });
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  const rest = source.slice(lastIndex);
+
+  if(rest.trim()){
+    chunkText(rest).forEach(t => {
+      parts.push({
+        text:t,
+        lang:detectVietnameseOrEnglish(t)
+      });
+    });
+  }
+
+  return parts.length ? parts : [{ text:source, lang:"vi-VN" }];
+}
+
+function detectVietnameseOrEnglish(text){
   const s = String(text || "");
-  const chineseCount = (s.match(/[\u4e00-\u9fff]/g) || []).length;
+
   const vietnameseCount = (
     s.match(/[ăâêôơưđĂÂÊÔƠƯĐáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/g) || []
   ).length;
 
-  if(chineseCount >= 3) return "zh-CN";
-  if(vietnameseCount >= 2) return "vi-VN";
-  return "zh-CN"; // Ưu tiên giọng Trung nếu không rõ
+  if(vietnameseCount >= 1) return "vi-VN";
+
+  return "vi-VN";
+}
+
+function chunkText(text){
+  const s = String(text || "").replace(/\s+/g," ").trim();
+
+  if(!s) return [];
+
+  const sentences = s.match(/[^.!?。！？]+[.!?。！？]?/g) || [s];
+  const chunks = [];
+  let current = "";
+
+  sentences.forEach(sentence => {
+    const next = current ? `${current} ${sentence.trim()}` : sentence.trim();
+
+    if(next.length > 180){
+      if(current) chunks.push(current);
+      current = sentence.trim();
+    }else{
+      current = next;
+    }
+  });
+
+  if(current) chunks.push(current);
+
+  return chunks;
+}
+
+function pickVoiceForLang(lang){
+  if(!window.speechSynthesis) return null;
+
+  const voices = window.speechSynthesis.getVoices() || [];
+
+  if(!voices.length) return null;
+
+  const exact = voices.find(v => v.lang === lang);
+  if(exact) return exact;
+
+  const prefix = String(lang || "").split("-")[0];
+  const sameFamily = voices.find(v => String(v.lang || "").startsWith(prefix));
+  if(sameFamily) return sameFamily;
+
+  if(lang === "vi-VN"){
+    return voices.find(v => String(v.lang || "").startsWith("vi")) || null;
+  }
+
+  if(lang === "zh-CN"){
+    return voices.find(v => String(v.lang || "").startsWith("zh")) || null;
+  }
+
+  return null;
+}
+
+if(window.speechSynthesis){
+  window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+  };
 }
 
 document.addEventListener("keydown", function(e){
   const input = document.getElementById("chatInput");
+
   if(!input) return;
+
   const isChatActive = document.getElementById("view-chat")?.classList.contains("active");
+
   if(!isChatActive) return;
+
   if(document.activeElement === input && e.key === "Enter" && !e.shiftKey){
     e.preventDefault();
     sendChatMessage();
   }
 });
+
 
 /* INIT */
 window.onload = () => {
