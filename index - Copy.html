@@ -128,7 +128,7 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
 .status-badge.pending{background:#fffaf0;color:#8f6a15;border:1px solid #eed9a3}
 .due-info{display:block;margin-top:4px;font-size:11.5px;color:var(--ink-soft)}
 
-/* DỊCH, FLASHCARD, QUIZ, WRITER */
+/* CÁC PHẦN CÒN LẠI (Dịch, Flashcard, Quiz...) */
 .source-text{
   background:#FDFCF8;border:1px dashed var(--gold);border-radius:14px;padding:20px;
   font-size:19px;line-height:1.9;margin-bottom:14px;
@@ -218,55 +218,6 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
 .writer-status-pill.learned{background:var(--jade-soft);color:var(--jade)}
 .writer-status-pill.unlearned{background:#fffaf0;color:#8f6a15;border:1px solid #eed9a3}
 
-/* CHAT AI */
-.chat-messages{
-  height:420px;
-  overflow:auto;
-  background:#FDFCF8;
-  border:1px solid var(--line);
-  border-radius:14px;
-  padding:14px;
-  margin-top:16px;
-}
-.chat-msg{
-  max-width:82%;
-  padding:10px 13px;
-  border-radius:14px;
-  margin:8px 0;
-  line-height:1.55;
-  font-size:15px;
-  white-space:normal;
-  word-break:break-word;
-}
-.chat-msg.user{
-  margin-left:auto;
-  background:var(--jade);
-  color:#fff;
-  border-bottom-right-radius:4px;
-}
-.chat-msg.ai{
-  margin-right:auto;
-  background:var(--paper-deep);
-  color:var(--ink);
-  border-bottom-left-radius:4px;
-}
-.chat-msg.system{
-  margin:8px auto;
-  background:#fffaf0;
-  color:#8f6a15;
-  border:1px solid #eed9a3;
-  text-align:center;
-  font-size:13px;
-}
-.chat-msg.loading{opacity:.75;font-style:italic}
-.chat-input-wrap{margin-top:14px}
-#chatInput{min-height:90px}
-#btnChatMic.recording{background:var(--gold);animation:pulse 1.5s infinite}
-.chat-toolbar{
-  display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between;
-}
-.chat-toolbar-right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-
 /* RESPONSIVE */
 @media(max-width:900px){
   .grid-sticky-controls {flex-direction: column; align-items: stretch;}
@@ -275,10 +226,6 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
   .writer-layout{grid-template-columns:1fr}
   .table-wrap{max-height:none}
   .quiz-options{grid-template-columns:1fr}
-}
-@media(max-width:700px){
-  .chat-msg{max-width:94%}
-  .chat-messages{height:360px}
 }
 </style>
 </head>
@@ -308,13 +255,16 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
   <button class="tab-btn" data-view="flash">Flashcard</button>
   <button class="tab-btn" data-view="quiz">Trắc nghiệm</button>
   <button class="tab-btn" data-view="writer">Luyện nét chữ</button>
-  <button class="tab-btn" data-view="chat">Trò chuyện AI</button>
 </nav>
 </div>
 
 <section class="view active" id="view-grid">
   <div class="panel" style="padding-top: 10px;">
+    
+    <!-- THANH GHIM KẾT HỢP ĐIỀU KHIỂN & THỐNG KÊ -->
     <div class="grid-sticky-controls">
+      
+      <!-- Bên trái: Điều khiển -->
       <div class="controls-row">
         <select id="gridLessonSelect" onchange="onLessonChange('grid')"></select>
         <select id="gridFilterSelect" onchange="renderGrid()">
@@ -333,9 +283,13 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
         <button class="btn btn-primary" onclick="checkGridAnswers()" id="btnSubmitGrid">✨ Chấm toàn bộ bài</button> 
         <button class="btn btn-secondary" onclick="shuffleGrid()">🔀 Đảo từ</button>
       </div>
+      
+      <!-- Bên phải: Thống kê tiến độ (sẽ được JS render động) -->
       <div id="lessonDashboard" class="lesson-dashboard"></div>
+      
     </div>
 
+    <!-- BẢNG TỪ VỰNG -->
     <div class="table-wrap">
       <table>
         <thead>
@@ -353,6 +307,7 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
   </div>
 </section>
 
+<!-- CÁC SECTION KHÁC GIỮ NGUYÊN NHƯ CŨ -->
 <section class="view" id="view-translate">
   <div class="panel">
     <div class="controls-row">
@@ -478,56 +433,6 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
   </div>
 </section>
 
-<section class="view" id="view-chat">
-  <div class="panel">
-    <div class="chat-toolbar">
-      <div>
-        <h2 style="margin:0;">💬 Trò chuyện với AI</h2>
-        <div class="small-note">
-          Nhập chữ hoặc bấm mic để nói. AI sẽ trả lời bằng văn bản và đọc bằng giọng Gemini.
-        </div>
-      </div>
-
-      <div class="chat-toolbar-right">
-        <select id="chatVoiceSelect" title="Chọn giọng đọc AI">
-          <option value="Kore">Giọng Kore</option>
-          <option value="Puck">Giọng Puck</option>
-          <option value="Charon">Giọng Charon</option>
-          <option value="Fenrir">Giọng Fenrir</option>
-          <option value="Aoede">Giọng Aoede</option>
-        </select>
-
-        <select id="chatMicLangSelect" title="Ngôn ngữ nhận diện mic">
-          <option value="zh-CN">Mic tiếng Trung</option>
-          <option value="vi-VN">Mic tiếng Việt</option>
-          <option value="en-US">Mic tiếng Anh</option>
-        </select>
-
-        <button class="btn btn-secondary" onclick="clearChatHistory()">Xóa hội thoại</button>
-      </div>
-    </div>
-
-    <div id="chatMessages" class="chat-messages"></div>
-
-    <div class="chat-input-wrap">
-      <textarea
-        id="chatInput"
-        placeholder="Ví dụ: Thầy ơi, hãy luyện hội thoại mua đồ bằng tiếng Trung với em..."
-      ></textarea>
-
-      <div class="controls-row" style="margin-top:10px;">
-        <button class="btn btn-primary" id="btnSendChat" onclick="sendChatMessage()">Gửi</button>
-        <button class="btn btn-seal" id="btnChatMic" onclick="toggleChatMic()">🎤 Ghi âm</button>
-        <button class="btn btn-gold" onclick="replayLastAIAudio()">🔊 Nghe lại</button>
-        <button class="btn btn-secondary" onclick="pauseChatAudio()">⏸️ Dừng đọc</button>
-      </div>
-
-      <div class="small-note" id="chatMicStatus">Mic: Sẵn sàng</div>
-      <audio id="chatAudioPlayer" style="display:none;"></audio>
-    </div>
-  </div>
-</section>
-
 </div>
 
 <script>
@@ -603,11 +508,11 @@ function shuffleArray(arr){
 }
 
 /* GEMINI - GỌI QUA VERCEL BACKEND */
-async function callGeminiText(promptText, temperature = 0.3) {
+async function callGeminiText(promptText) {
   const response = await fetch('/api/chat', {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt: promptText, temperature })
+    body: JSON.stringify({ prompt: promptText })
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Lỗi Server");
@@ -819,7 +724,6 @@ function refreshAfterImport(){
   if(active === "quiz") initQuiz();
   if(active === "writer") initWriter();
   if(active === "translate") resetTranslationPanels(false);
-  if(active === "chat") renderChatMessages();
 
   const input = document.getElementById("excelInput");
   if(input) input.value = "";
@@ -974,7 +878,6 @@ tabBtns.forEach(btn => {
     if(v === "flash") initFlashcard();
     if(v === "quiz") initQuiz();
     if(v === "writer") initWriter();
-    if(v === "chat") renderChatMessages();
   });
 });
 function onLessonChange(area){
@@ -1964,360 +1867,6 @@ function resetWriterProgressForLesson(){
   initWriter();
 }
 
-/* CHAT AI VOICE */
-let chatHistory = [];
-let lastAIAudioUrl = "";
-let lastAIReply = "";
-let chatRecognition = null;
-let isChatRecording = false;
-
-async function callGeminiChatVoice(message, historyForApi = []) {
-  const lesson =
-    document.getElementById("gridLessonSelect")?.value ||
-    document.getElementById("transLessonSelect")?.value ||
-    "";
-
-  const vocabText = appData.vocab
-    .filter(v => !lesson || v.sheet === lesson)
-    .slice(0, 30)
-    .map(v => `${v.hanzi} (${v.pinyin}) = ${v.nghia}`)
-    .join("; ");
-
-  const voiceName = document.getElementById("chatVoiceSelect")?.value || "Kore";
-
-  const response = await fetch("/api/chat-voice", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      message,
-      history: historyForApi,
-      vocabText,
-      voiceName
-    })
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || "Lỗi gọi /api/chat-voice");
-  }
-
-  return data;
-}
-
-function renderChatMessages(){
-  const box = document.getElementById("chatMessages");
-  if(!box) return;
-
-  if(chatHistory.length === 0){
-    box.innerHTML = `
-      <div class="chat-msg system">
-        Hãy nhập tin nhắn hoặc bấm mic để nói chuyện với AI.
-      </div>
-    `;
-    return;
-  }
-
-  box.innerHTML = chatHistory.map(msg => {
-    return `
-      <div class="chat-msg ${msg.role} ${msg.loading ? "loading" : ""}">
-        ${formatAIText(msg.content)}
-      </div>
-    `;
-  }).join("");
-
-  box.scrollTop = box.scrollHeight;
-}
-
-async function sendChatMessage(textFromVoice = ""){
-  const input = document.getElementById("chatInput");
-  const btn = document.getElementById("btnSendChat");
-
-  const userMessage = String(textFromVoice || input.value || "").trim();
-
-  if(!userMessage){
-    alert("Bạn chưa nhập nội dung.");
-    return;
-  }
-
-  const historyForApi = chatHistory
-    .filter(m => !m.loading)
-    .slice(-10)
-    .map(m => ({
-      role:m.role,
-      content:m.content
-    }));
-
-  chatHistory.push({
-    role:"user",
-    content:userMessage
-  });
-
-  input.value = "";
-
-  chatHistory.push({
-    role:"ai",
-    content:"⏳ Thầy đang suy nghĩ và tạo giọng đọc...",
-    loading:true
-  });
-
-  renderChatMessages();
-
-  btn.disabled = true;
-  btn.innerHTML = "⏳ Đang gửi...";
-
-  try{
-    const result = await callGeminiChatVoice(userMessage, historyForApi);
-
-    const aiText = result.text || "AI không trả về nội dung.";
-    lastAIReply = aiText;
-
-    chatHistory = chatHistory.filter(m => !m.loading);
-
-    chatHistory.push({
-      role:"ai",
-      content:aiText
-    });
-
-    renderChatMessages();
-
-    if(result.audioBase64 && result.mimeType){
-      playBase64Audio(result.audioBase64, result.mimeType);
-    }else{
-      console.warn("Không có audio Gemini, fallback sang giọng trình duyệt.");
-      speakMixedTextFallback(aiText);
-    }
-  }catch(error){
-    chatHistory = chatHistory.filter(m => !m.loading);
-
-    chatHistory.push({
-      role:"ai",
-      content:`❌ Không gọi được AI: ${error.message}`
-    });
-
-    renderChatMessages();
-  }finally{
-    btn.disabled = false;
-    btn.innerHTML = "Gửi";
-  }
-}
-
-function playBase64Audio(base64, mimeType){
-  const audio = document.getElementById("chatAudioPlayer");
-  if(!audio) return;
-
-  if(lastAIAudioUrl){
-    URL.revokeObjectURL(lastAIAudioUrl);
-    lastAIAudioUrl = "";
-  }
-
-  const byteCharacters = atob(base64);
-  const byteNumbers = new Array(byteCharacters.length);
-
-  for(let i = 0; i < byteCharacters.length; i++){
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], {
-    type:mimeType || "audio/wav"
-  });
-
-  lastAIAudioUrl = URL.createObjectURL(blob);
-
-  audio.src = lastAIAudioUrl;
-  audio.style.display = "block";
-
-  audio.play().catch(err => {
-    console.warn("Trình duyệt chặn tự phát audio:", err);
-  });
-}
-
-function replayLastAIAudio(){
-  const audio = document.getElementById("chatAudioPlayer");
-
-  if(audio && audio.src){
-    audio.currentTime = 0;
-    audio.play().catch(() => {});
-    return;
-  }
-
-  if(lastAIReply){
-    speakMixedTextFallback(lastAIReply);
-    return;
-  }
-
-  alert("Chưa có câu trả lời AI để đọc lại.");
-}
-
-function pauseChatAudio(){
-  const audio = document.getElementById("chatAudioPlayer");
-
-  if(audio && !audio.paused){
-    audio.pause();
-  }
-
-  if(window.speechSynthesis){
-    window.speechSynthesis.cancel();
-  }
-}
-
-function clearChatHistory(){
-  if(!confirm("Xóa toàn bộ hội thoại hiện tại?")) return;
-
-  chatHistory = [];
-  lastAIReply = "";
-
-  pauseChatAudio();
-
-  const audio = document.getElementById("chatAudioPlayer");
-  if(audio){
-    audio.removeAttribute("src");
-  }
-
-  if(lastAIAudioUrl){
-    URL.revokeObjectURL(lastAIAudioUrl);
-    lastAIAudioUrl = "";
-  }
-
-  renderChatMessages();
-}
-
-function toggleChatMic(){
-  const SR = getSpeechRecognition();
-  const btn = document.getElementById("btnChatMic");
-  const status = document.getElementById("chatMicStatus");
-  const input = document.getElementById("chatInput");
-
-  if(!SR){
-    alert("Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Nên dùng Chrome hoặc Edge.");
-    return;
-  }
-
-  if(isChatRecording && chatRecognition){
-    try{
-      chatRecognition.stop();
-    }catch{}
-    return;
-  }
-
-  try{
-    chatRecognition = new SR();
-
-    chatRecognition.lang = document.getElementById("chatMicLangSelect")?.value || "zh-CN";
-    chatRecognition.continuous = false;
-    chatRecognition.interimResults = true;
-    chatRecognition.maxAlternatives = 3;
-
-    let finalText = "";
-
-    chatRecognition.onstart = () => {
-      isChatRecording = true;
-      btn.classList.add("recording");
-      btn.innerHTML = "🎙️ Đang nghe...";
-      status.innerText = "Mic: Đang nghe, nói xong app sẽ tự gửi.";
-      input.value = "";
-    };
-
-    chatRecognition.onresult = event => {
-      let interimText = "";
-
-      for(let i = event.resultIndex; i < event.results.length; i++){
-        const transcript = event.results[i][0].transcript || "";
-
-        if(event.results[i].isFinal){
-          finalText += transcript;
-        }else{
-          interimText += transcript;
-        }
-      }
-
-      input.value = (finalText + interimText).trim();
-    };
-
-    chatRecognition.onerror = event => {
-      console.warn("Speech recognition error:", event);
-
-      if(event.error === "not-allowed"){
-        status.innerText = "Mic: Bạn chưa cấp quyền micro.";
-      }else if(event.error === "no-speech"){
-        status.innerText = "Mic: Không nghe thấy tiếng nói.";
-      }else{
-        status.innerText = "Mic: Có lỗi khi nghe.";
-      }
-    };
-
-    chatRecognition.onend = async () => {
-      isChatRecording = false;
-      btn.classList.remove("recording");
-      btn.innerHTML = "🎤 Ghi âm";
-
-      const text = (finalText || input.value || "").trim();
-
-      if(text){
-        status.innerText = "Mic: Đã nghe xong, đang gửi AI.";
-        await sendChatMessage(text);
-        status.innerText = "Mic: Sẵn sàng";
-      }else{
-        status.innerText = "Mic: Không nghe rõ nội dung.";
-      }
-    };
-
-    chatRecognition.start();
-  }catch(err){
-    console.error(err);
-
-    isChatRecording = false;
-    btn.classList.remove("recording");
-    btn.innerHTML = "🎤 Ghi âm";
-    status.innerText = "Mic: Không bật được.";
-  }
-}
-
-function speakMixedTextFallback(text){
-  if(!window.speechSynthesis) return;
-
-  window.speechSynthesis.cancel();
-
-  const utterance = new SpeechSynthesisUtterance(String(text || ""));
-  utterance.lang = detectMainSpeechLang(text);
-  utterance.rate = 0.92;
-  utterance.pitch = 1;
-
-  window.speechSynthesis.speak(utterance);
-}
-
-function detectMainSpeechLang(text){
-  const s = String(text || "");
-
-  const chineseCount = (s.match(/[\u4e00-\u9fff]/g) || []).length;
-
-  const vietnameseCount = (
-    s.match(/[ăâêôơưđĂÂÊÔƠƯĐáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/g) || []
-  ).length;
-
-  if(chineseCount >= 4) return "zh-CN";
-  if(vietnameseCount >= 2) return "vi-VN";
-  return "en-US";
-}
-
-document.addEventListener("keydown", function(e){
-  const input = document.getElementById("chatInput");
-
-  if(!input) return;
-
-  const isChatActive = document.getElementById("view-chat")?.classList.contains("active");
-
-  if(!isChatActive) return;
-
-  if(document.activeElement === input && e.key === "Enter" && !e.shiftKey){
-    e.preventDefault();
-    sendChatMessage();
-  }
-});
-
 /* INIT */
 window.onload = () => {
   loadState();
@@ -2330,7 +1879,6 @@ window.onload = () => {
   }
 
   renderGrid();
-  renderChatMessages();
 };
 </script>
 </body>
