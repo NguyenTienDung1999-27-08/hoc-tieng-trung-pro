@@ -51,31 +51,64 @@ module.exports = async function (req, res) {
       throw new Error("Gemini không trả về nội dung.");
     }
 
-    // 2. TÁCH CÂU VÀ LẤY AUDIO ĐÚNG GIỌNG (TRUNG RIÊNG, VIỆT RIÊNG)
+    // 2. TÁCH CÂU THÔNG MINH (GIỮ NGUYÊN DẤU CÂU VÀ NGỮ ĐIỆU)
     let audioBase64 = "";
     try {
-      // Băm câu trả lời thành mảng: Chữ Hán nằm riêng, chữ Latin/Việt nằm riêng
-      const chunks = aiText.split(/([\u4e00-\u9fff]+)/g).filter(c => c.trim().length > 0);
-      const audioBuffers = [];
+      const segments = [];
+      let currentSegment = "";
+      let currentLang = "vi"; // Mặc định khởi đầu bằng tiếng Việt
 
-      for (let chunk of chunks) {
-        // Kiểm tra xem đoạn này có chứa chữ Hán hay không
-        const isChinese = /[\u4e00-\u9fff]/.test(chunk);
-        
-        // Cú pháp thần thánh: Có Hán -> giọng Trung (zh-CN), Không Hán -> giọng Việt (vi)
-        const tl = isChinese ? "zh-CN" : "vi"; 
-        
-        const safeTextToRead = encodeURIComponent(chunk.substring(0, 200));
-        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${safeTextToRead}`;
-        
-        const audioResponse = await fetch(ttsUrl);
-        if (audioResponse.ok) {
-          const arrayBuffer = await audioResponse.arrayBuffer();
-          audioBuffers.push(Buffer.from(arrayBuffer));
+      for (let i = 0; i < aiText.length; i++) {
+        const char = aiText[i];
+        const isChinese = /[\u4e00-\u9fff]/.test(char);
+        // Nhận diện mọi loại dấu câu (kể cả dấu Trung Quốc) và khoảng trắng
+        const isPunctuationOrSpace = /[.,!?()\[\]{}\s。，！？；：“”‘’（）]/i.test(char);
+
+        if (isChinese) {
+          if (currentLang !== "zh-CN" && currentSegment.trim().length > 0) {
+            segments.push({ text: currentSegment, lang: currentLang });
+            currentSegment = "";
+          }
+          currentLang = "zh-CN";
+          currentSegment += char;
+        } else if (isPunctuationOrSpace) {
+          // Gắn dính dấu câu/khoảng trắng vào phân đoạn hiện tại để giữ nhịp nghỉ
+          currentSegment += char; 
+        } else {
+          // Là chữ cái Latin/Tiếng Việt
+          if (currentLang !== "vi" && currentSegment.trim().length > 0) {
+            segments.push({ text: currentSegment, lang: currentLang });
+            currentSegment = "";
+          }
+          currentLang = "vi";
+          currentSegment += char;
         }
       }
 
-      // MP3 hỗ trợ ghép nối nhị phân trực tiếp. Gộp tất cả lại thành 1 luồng âm thanh duy nhất!
+      // Đẩy đoạn cuối cùng vào mảng
+      if (currentSegment.trim().length > 0) {
+        segments.push({ text: currentSegment, lang: currentLang });
+      }
+
+      const audioBuffers = [];
+
+      // Vòng lặp lấy MP3 cho từng khúc đã được băm chuẩn xác
+      for (let seg of segments) {
+        // Lọc an toàn: Chỉ gọi Google TTS nếu đoạn đó thực sự có chứa chữ cái/số
+        // Tránh lỗi gửi đoạn chỉ toàn dấu phẩy hoặc khoảng trắng lên Server
+        if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(seg.text)) {
+          const safeTextToRead = encodeURIComponent(seg.text.substring(0, 200));
+          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${seg.lang}&q=${safeTextToRead}`;
+          
+          const audioResponse = await fetch(ttsUrl);
+          if (audioResponse.ok) {
+            const arrayBuffer = await audioResponse.arrayBuffer();
+            audioBuffers.push(Buffer.from(arrayBuffer));
+          }
+        }
+      }
+
+      // Hàn nối tất cả các MP3 lại thành 1 luồng âm thanh liên tục
       if (audioBuffers.length > 0) {
         const combinedBuffer = Buffer.concat(audioBuffers);
         audioBase64 = combinedBuffer.toString('base64');
