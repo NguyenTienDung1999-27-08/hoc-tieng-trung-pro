@@ -1,5 +1,4 @@
-module.exports = async function handler(req, res) {
-  // Fix lỗi ESM/CommonJS của Vercel bằng cách dùng module.exports chuẩn
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -42,12 +41,10 @@ module.exports = async function handler(req, res) {
       throw new Error("Gemini không trả về nội dung.");
     }
 
-    // 2. GỌI GOOGLE TRANSLATE CLOUD ĐỂ LẤY GIỌNG ĐỌC SIÊU MƯỢT
+    // 2. GỌI GOOGLE TRANSLATE CLOUD ĐỂ LẤY FILE ÂM THANH
     let audioBase64 = "";
     try {
-      // Google TTS API ẩn giới hạn khoảng 200 ký tự. Cắt chuỗi an toàn.
       const safeTextToRead = encodeURIComponent(aiText.substring(0, 200));
-      // tl=zh-CN giúp giọng AI đọc mượt cả Hán tự lẫn Tiếng Việt
       const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=zh-CN&q=${safeTextToRead}`;
       
       const audioResponse = await fetch(ttsUrl);
@@ -57,7 +54,6 @@ module.exports = async function handler(req, res) {
       }
     } catch (ttsError) {
       console.warn("Lỗi không lấy được âm thanh từ Google Cloud:", ttsError);
-      // Nếu lỗi âm thanh, vẫn tiếp tục chạy để trả về văn bản cho người dùng
     }
 
     // 3. TRẢ VỀ CẢ CHỮ VÀ ÂM THANH CHO TRÌNH DUYỆT
@@ -72,4 +68,4 @@ module.exports = async function handler(req, res) {
       error: error.message || "Lỗi server không xác định."
     });
   }
-};
+}
