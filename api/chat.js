@@ -1,40 +1,77 @@
 export default async function handler(req, res) {
-  // 1. Chỉ nhận yêu cầu POST
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: "Chỉ chấp nhận phương thức POST" });
-  }
-
-  // 2. Lấy Key từ cấu hình Vercel
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-  // Kiểm tra xem Key đã được nạp chưa
-  if (!GEMINI_API_KEY || GEMINI_API_KEY === "") {
-    return res.status(500).json({ error: "Lỗi Server: Chưa cấu hình GEMINI_API_KEY trên Vercel!" });
+  if (req.method !== "POST") {
+    return res.status(405).json({
+      error: "Method not allowed"
+    });
   }
 
   try {
-    const { prompt } = req.body;
-    
-    // 3. Gọi API Google Gemini
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(500).json({
+        error: "Thiếu GEMINI_API_KEY trong Environment Variables của Vercel."
+      });
+    }
+
+    const { prompt, temperature } = req.body || {};
+
+    if (!prompt) {
+      return res.status(400).json({
+        error: "Thiếu nội dung prompt."
+      });
+    }
+
+    const model = process.env.GEMINI_TEXT_MODEL || "gemini-3.5-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    const body = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: temperature || 0.6,
+        topP: 0.9,
+        maxOutputTokens: 1200
+      }
+    };
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.35, maxOutputTokens: 500 }
-      })
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey
+      },
+      body: JSON.stringify(body)
     });
 
     const data = await response.json();
 
-    // 4. Kiểm tra phản hồi từ Google
     if (!response.ok) {
-        return res.status(response.status).json({ error: data.error?.message || "Lỗi từ API Google" });
+      throw new Error(data?.error?.message || `Không gọi được Gemini text với model ${model}.`);
     }
 
-    return res.status(200).json(data);
+    const text = data?.candidates?.[0]?.content?.parts
+      ?.map((p) => p.text || "")
+      .join("")
+      .trim();
 
+    if (!text) {
+      throw new Error("Gemini không trả về nội dung text.");
+    }
+
+    return res.status(200).json({
+      result: text
+    });
   } catch (error) {
-    return res.status(500).json({ error: "Lỗi kết nối tới Google AI: " + error.message });
+    console.error("Vercel api/chat error:", error);
+    return res.status(500).json({
+      error: error.message || "Lỗi server khi gọi Gemini."
+    });
   }
 }

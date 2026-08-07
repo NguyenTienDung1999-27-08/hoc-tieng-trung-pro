@@ -484,22 +484,15 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
       <div>
         <h2 style="margin:0;">💬 Trò chuyện với AI</h2>
         <div class="small-note">
-          Nhập chữ hoặc bấm mic để nói. AI sẽ trả lời bằng văn bản và đọc bằng giọng Gemini.
+          Nhập chữ hoặc bấm mic để nói. AI sẽ trả lời và trình duyệt sẽ tự động đọc.
         </div>
       </div>
 
       <div class="chat-toolbar-right">
-        <select id="chatVoiceSelect" title="Chọn giọng đọc AI">
-          <option value="Kore">Giọng Kore</option>
-          <option value="Puck">Giọng Puck</option>
-          <option value="Charon">Giọng Charon</option>
-          <option value="Fenrir">Giọng Fenrir</option>
-          <option value="Aoede">Giọng Aoede</option>
-        </select>
-
+        <!-- Đã đảo mặc định sang tiếng Việt để nhận diện chuẩn xác khi Dũng đọc -->
         <select id="chatMicLangSelect" title="Ngôn ngữ nhận diện mic">
+          <option value="vi-VN" selected>Mic tiếng Việt</option>
           <option value="zh-CN">Mic tiếng Trung</option>
-          <option value="vi-VN">Mic tiếng Việt</option>
           <option value="en-US">Mic tiếng Anh</option>
         </select>
 
@@ -522,8 +515,7 @@ td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
         <button class="btn btn-secondary" onclick="pauseChatAudio()">⏸️ Dừng đọc</button>
       </div>
 
-      <div class="small-note" id="chatMicStatus">Mic: Sẵn sàng</div>
-      <audio id="chatAudioPlayer" style="display:none;"></audio>
+      <div class="small-note" id="chatMicStatus">Mic: Sẵn sàng (Nhớ chọn đúng ngôn ngữ Mic ở góc phải nhé!)</div>
     </div>
   </div>
 </section>
@@ -969,13 +961,12 @@ tabBtns.forEach(btn => {
     populateLessonSelects();
 
     const v = btn.dataset.view;
-if(v === "grid") renderGrid();
-if(v === "translate") resetTranslationPanels(false);
-if(v === "flash") initFlashcard();
-if(v === "quiz") initQuiz();
-if(v === "writer") initWriter();
-if(v === "chat") renderChatMessages();
-
+    if(v === "grid") renderGrid();
+    if(v === "translate") resetTranslationPanels(false);
+    if(v === "flash") initFlashcard();
+    if(v === "quiz") initQuiz();
+    if(v === "writer") initWriter();
+    if(v === "chat") renderChatMessages();
   });
 });
 function onLessonChange(area){
@@ -983,8 +974,6 @@ function onLessonChange(area){
     const status = getLessonStatus(document.getElementById("gridLessonSelect").value);
     if(status.dueWords > 0) document.getElementById("gridFilterSelect").value = "due";
     renderGrid();
-renderChatMessages();
-
   }
 }
 
@@ -1243,17 +1232,14 @@ async function checkSingleGridAnswer(idx,moveNext = false){
         let isCorrect = false;
 
         try{
-          const prompt = `
-Bạn là gia sư tiếng Trung. Chấm xem câu trả lời tiếng Việt có tương đương nghĩa không.
-
-Từ tiếng Trung: "${item.hanzi}"
-Pinyin: "${item.pinyin}"
-Nghĩa chuẩn: "${item.nghia}"
-Học viên trả lời: "${rawUserVal}"
-
-Chỉ trả về JSON:
-{"isCorrect": true hoặc false}
-`;
+          const prompt = `Bạn là gia sư tiếng Trung. Chấm xem câu trả lời tiếng Việt có tương đương nghĩa không.
+          Từ tiếng Trung: "${item.hanzi}"
+          Pinyin: "${item.pinyin}"
+          Nghĩa chuẩn: "${item.nghia}"
+          Học viên trả lời: "${rawUserVal}"
+          Chỉ trả về JSON:
+          {"isCorrect": true hoặc false}`;
+          
           const aiResponse = await callGeminiText(prompt,0.05);
           const cleanJson = aiResponse.replace(/```json/g,"").replace(/```/g,"").trim();
           isCorrect = !!JSON.parse(cleanJson).isCorrect;
@@ -1421,34 +1407,23 @@ async function generateNewText(direction){
   let prompt = "";
 
   if(direction === "cn2vn"){
-    prompt = `
-Tạo 1 đoạn tiếng Trung giản thể ngắn cho người mới học dịch sang tiếng Việt.
-
-Từ vựng bài học:
-${vocabText || "Dùng HSK 1 đến HSK 2."}
-
+    prompt = `Tạo 1 đoạn tiếng Trung giản thể ngắn cho người mới học dịch sang tiếng Việt.
+Từ vựng bài học: ${vocabText || "Dùng HSK 1 đến HSK 2."}
 Yêu cầu:
 - 2 đến 3 câu.
 - Ưu tiên dùng từ trong bài.
 - Trả về đúng 2 dòng:
 HANZI: đoạn tiếng Trung giản thể
 PINYIN: pinyin có dấu thanh
-
-Không dịch, không giải thích.
-`;
+Không dịch, không giải thích.`;
   }else{
-    prompt = `
-Tạo 1 đoạn tiếng Việt ngắn cho người mới học dịch sang tiếng Trung.
-
-Từ vựng bài học:
-${vocabText || "Dùng HSK 1 đến HSK 2."}
-
+    prompt = `Tạo 1 đoạn tiếng Việt ngắn cho người mới học dịch sang tiếng Trung.
+Từ vựng bài học: ${vocabText || "Dùng HSK 1 đến HSK 2."}
 Yêu cầu:
 - 2 đến 3 câu.
 - Nội dung xoay quanh các từ trong bài.
 - Chỉ trả về đoạn tiếng Việt.
-- Không dịch, không giải thích.
-`;
+- Không dịch, không giải thích.`;
   }
 
   try{
@@ -1476,22 +1451,15 @@ async function checkTranslation1(){
 
   const originalText = document.getElementById("source-cn2vn").dataset.text.trim() || document.getElementById("source-cn2vn").innerText.trim();
 
-  const prompt = `
-Đóng vai gia sư tiếng Trung, xưng là "Thầy" và gọi học viên là "Học Trò".
-
-Đoạn gốc tiếng Trung:
-"${originalText}"
-
-Bản dịch tiếng Việt của học viên:
-"${userInput}"
-
+  const prompt = `Đóng vai gia sư tiếng Trung, xưng là "Thầy" và gọi học viên là "Học Trò".
+Đoạn gốc tiếng Trung: "${originalText}"
+Bản dịch tiếng Việt của học viên: "${userInput}"
 Nhiệm vụ:
 1. Chấm theo thang 10.
 2. Nếu đúng, khen ngợi.
 3. Nếu sai, chỉ ra nhẹ nhàng.
 4. Đưa bản dịch tham khảo tự nhiên.
-5. Ngắn gọn, dễ hiểu.
-`;
+5. Ngắn gọn, dễ hiểu.`;
 
   btn.disabled = true;
   showTranslationLoading(box,"⏳ AI đang chấm...");
@@ -1512,15 +1480,9 @@ async function checkTranslation2(){
 
   const originalText = document.getElementById("source-vn2cn").dataset.text.trim() || document.getElementById("source-vn2cn").innerText.trim();
 
-  const prompt = `
-Đóng vai gia sư tiếng Trung, xưng là "Thầy" và gọi học viên là "Trò".
-
-Câu gốc tiếng Việt:
-"${originalText}"
-
-Bản dịch tiếng Trung của học viên:
-"${userInput}"
-
+  const prompt = `Đóng vai gia sư tiếng Trung, xưng là "Thầy" và gọi học viên là "Trò".
+Câu gốc tiếng Việt: "${originalText}"
+Bản dịch tiếng Trung của học viên: "${userInput}"
 Nhiệm vụ:
 1. Kiểm tra ngữ pháp và từ vựng.
 2. Chấm điểm /10.
@@ -1528,11 +1490,9 @@ Nhiệm vụ:
 4. Cung cấp bản dịch chuẩn bằng Hán tự.
 5. Thêm Pinyin.
 6. Ngắn gọn.
-
 BẮT BUỘC:
 ANSWER: câu tiếng Trung giản thể đầy đủ
-PINYIN: pinyin đầy đủ
-`;
+PINYIN: pinyin đầy đủ`;
 
   btn.disabled = true;
   showTranslationLoading(box,"⏳ AI đang chấm...");
@@ -1967,13 +1927,58 @@ function resetWriterProgressForLesson(){
   initWriter();
 }
 
-/* CHAT AI SIMPLE: MIC -> TEXT -> GEMINI -> BROWSER SPEECH */
+/* =========================================
+   CHAT AI VOICE (FIXED THE LOGIC) 
+   ========================================= */
 let chatHistory = [];
 let lastAIReply = "";
 let chatRecognition = null;
 let isChatRecording = false;
-let speechQueue = [];
-let isSpeakingQueue = false;
+
+async function callGeminiChatVoice(message, historyForApi = []) {
+  const lesson =
+    document.getElementById("gridLessonSelect")?.value ||
+    document.getElementById("transLessonSelect")?.value ||
+    "";
+
+  const vocabText = appData.vocab
+    .filter(v => !lesson || v.sheet === lesson)
+    .slice(0, 20)
+    .map(v => `${v.hanzi} (${v.pinyin}) = ${v.nghia}`)
+    .join("; ");
+
+  const historyText = historyForApi
+    .slice(-6)
+    .map(m => `${m.role === "user" ? "Học viên" : "Thầy"}: ${m.content}`)
+    .join("\n");
+
+  const prompt = `Bạn là gia sư tiếng Trung đang đối thoại trực tiếp với học viên.
+
+Cách trả lời:
+- Trả lời ngắn, tự nhiên, như 2 người đang nói chuyện.
+- Nếu học viên nói tiếng Việt, trả lời tiếng Việt và thêm 1 câu tiếng Trung ngắn nếu phù hợp.
+- Nếu học viên nói tiếng Trung, trả lời bằng tiếng Trung đơn giản, kèm nghĩa tiếng Việt ngắn.
+- Tối đa 3 đến 5 câu.
+
+Từ vựng bài hiện tại:
+${vocabText || "Không có."}
+
+Lịch sử gần đây:
+${historyText || "Chưa có."}
+
+Học viên vừa nói:
+${message}`;
+
+  try {
+    // Để fix lỗi kẹt (timeout), ta sẽ bypass hàm backend gọi TTS của Vercel (vì nó dễ bị block do chạy quá 10s).
+    // Gọi thẳng vào hàm text, rồi lấy text đó trả về cho trình duyệt đọc (như Dũng yêu cầu)
+    const text = await callGeminiText(prompt, 0.45);
+    return text;
+  } catch (error) {
+    console.error("Lỗi gọi Gemini Chat API:", error);
+    throw error;
+  }
+}
 
 function renderChatMessages(){
   const box = document.getElementById("chatMessages");
@@ -1982,7 +1987,7 @@ function renderChatMessages(){
   if(chatHistory.length === 0){
     box.innerHTML = `
       <div class="chat-msg system">
-        Hãy nhập tin nhắn hoặc bấm mic để bắt đầu trò chuyện.
+        Hãy nhập tin nhắn hoặc bấm mic để nói chuyện với AI.
       </div>
     `;
     return;
@@ -1999,80 +2004,30 @@ function renderChatMessages(){
   box.scrollTop = box.scrollHeight;
 }
 
-function getChatLessonVocabText(){
-  const lesson =
-    document.getElementById("gridLessonSelect")?.value ||
-    document.getElementById("transLessonSelect")?.value ||
-    "";
-
-  return appData.vocab
-    .filter(v => !lesson || v.sheet === lesson)
-    .slice(0, 20)
-    .map(v => `${v.hanzi} (${v.pinyin}) = ${v.nghia}`)
-    .join("; ");
-}
-
-function buildChatPrompt(userMessage, historyForPrompt){
-  const vocabText = getChatLessonVocabText();
-
-  const historyText = historyForPrompt
-    .slice(-6)
-    .map(m => `${m.role === "user" ? "Học viên" : "Thầy"}: ${m.content}`)
-    .join("\n");
-
-  return `
-Bạn là gia sư tiếng Trung đang trò chuyện trực tiếp với học viên.
-
-Quy tắc trả lời:
-- Trả lời ngắn, tự nhiên, giống 2 người đang đối thoại.
-- Không viết dài dòng.
-- Không dùng markdown phức tạp.
-- Nếu học viên nói tiếng Việt, trả lời tiếng Việt là chính.
-- Nếu phù hợp, thêm 1 câu tiếng Trung ngắn kèm pinyin và nghĩa.
-- Nếu học viên nói tiếng Trung sai, sửa nhẹ nhàng.
-- Tối đa 3 đến 5 câu.
-- Câu trả lời phải dễ đọc thành tiếng.
-
-Từ vựng bài hiện tại:
-${vocabText || "Không có từ vựng."}
-
-Lịch sử gần đây:
-${historyText || "Chưa có."}
-
-Học viên vừa nói:
-${userMessage}
-`;
-}
-
 async function sendChatMessage(textFromVoice = ""){
   const input = document.getElementById("chatInput");
   const btn = document.getElementById("btnSendChat");
-  const status = document.getElementById("chatMicStatus");
 
-  const userMessage = String(textFromVoice || input?.value || "").trim();
+  const userMessage = String(textFromVoice || input.value || "").trim();
 
   if(!userMessage){
     alert("Bạn chưa nhập nội dung.");
     return;
   }
 
-  stopChatSpeech();
-
-  const historyForPrompt = chatHistory
+  const historyForApi = chatHistory
     .filter(m => !m.loading)
-    .slice(-8)
-    .map(m => ({
-      role:m.role,
-      content:m.content
-    }));
+    .slice(-10)
+    .map(m => ({ role: m.role, content: m.content }));
 
   chatHistory.push({
     role:"user",
     content:userMessage
   });
 
-  if(input) input.value = "";
+  input.value = "";
 
+  // Sửa thông báo để không bị hiểu nhầm là kẹt tạo giọng
   chatHistory.push({
     role:"ai",
     content:"⏳ Thầy đang suy nghĩ...",
@@ -2081,65 +2036,63 @@ async function sendChatMessage(textFromVoice = ""){
 
   renderChatMessages();
 
-  if(btn){
-    btn.disabled = true;
-    btn.innerHTML = "⏳ Đang gửi...";
-  }
-
-  if(status) status.innerText = "AI: Đang trả lời...";
+  btn.disabled = true;
+  btn.innerHTML = "⏳ Đang gửi...";
 
   try{
-    const prompt = buildChatPrompt(userMessage, historyForPrompt);
-    const aiText = await callGeminiText(prompt, 0.45);
+    const aiText = await callGeminiChatVoice(userMessage, historyForApi);
+    lastAIReply = aiText || "Thầy không nghe rõ, Trò có thể nhắc lại không?";
 
-    lastAIReply = aiText;
-
+    // Xóa tin nhắn loading
     chatHistory = chatHistory.filter(m => !m.loading);
 
     chatHistory.push({
       role:"ai",
-      content:aiText
+      content: lastAIReply
     });
 
     renderChatMessages();
+    
+    // Yêu cầu: Trình duyệt tự động đọc (Đã xử lý gọi hàm fallback TTS của trình duyệt)
+    speakMixedTextFallback(lastAIReply);
 
-    if(status) status.innerText = "AI: Đã trả lời, đang đọc.";
-    speakAIReply(aiText);
   }catch(error){
     console.error(error);
-
+    // Xóa tin nhắn loading và in ra lỗi để không bị kẹt nữa
     chatHistory = chatHistory.filter(m => !m.loading);
 
     chatHistory.push({
       role:"ai",
-      content:`❌ Không gọi được AI: ${error.message}`
+      content:`❌ Lỗi: AI không phản hồi được. Xin thử lại. (${error.message})`
     });
 
     renderChatMessages();
-
-    if(status) status.innerText = "AI: Lỗi khi gọi Gemini.";
   }finally{
-    if(btn){
-      btn.disabled = false;
-      btn.innerHTML = "Gửi";
-    }
+    btn.disabled = false;
+    btn.innerHTML = "Gửi";
+  }
+}
+
+function replayLastAIAudio(){
+  // Bỏ logic check file audioBase64 cũ, ép nó luôn luôn gọi hàm đọc văn bản của trình duyệt
+  if(lastAIReply){
+    speakMixedTextFallback(lastAIReply);
+  } else {
+    alert("Chưa có câu trả lời AI để đọc lại.");
+  }
+}
+
+function pauseChatAudio(){
+  if(window.speechSynthesis){
+    window.speechSynthesis.cancel();
   }
 }
 
 function clearChatHistory(){
   if(!confirm("Xóa toàn bộ hội thoại hiện tại?")) return;
-
-  stopChatSpeech();
-
   chatHistory = [];
   lastAIReply = "";
-
-  const input = document.getElementById("chatInput");
-  if(input) input.value = "";
-
-  const status = document.getElementById("chatMicStatus");
-  if(status) status.innerText = "Mic: Sẵn sàng";
-
+  pauseChatAudio();
   renderChatMessages();
 }
 
@@ -2148,355 +2101,124 @@ function toggleChatMic(){
   const btn = document.getElementById("btnChatMic");
   const status = document.getElementById("chatMicStatus");
   const input = document.getElementById("chatInput");
+  const langSelect = document.getElementById("chatMicLangSelect");
 
   if(!SR){
-    alert("Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Bạn nên dùng Chrome hoặc Edge.");
+    alert("Trình duyệt này chưa hỗ trợ nhận diện giọng nói. Nên dùng Chrome hoặc Edge.");
     return;
   }
 
   if(isChatRecording && chatRecognition){
-    try{
-      chatRecognition.stop();
-    }catch{}
+    try{ chatRecognition.stop(); }catch{}
     return;
   }
-
-  stopChatSpeech();
 
   try{
     chatRecognition = new SR();
 
-    const selectedLang = document.getElementById("chatMicLangSelect")?.value || "vi-VN";
-
-    chatRecognition.lang = selectedLang;
+    // Sửa lỗi đọc tiếng Việt ra tiếng Trung: lấy chính xác value từ ô Select
+    chatRecognition.lang = langSelect ? langSelect.value : "vi-VN";
     chatRecognition.continuous = false;
     chatRecognition.interimResults = true;
-    chatRecognition.maxAlternatives = 1;
+    chatRecognition.maxAlternatives = 3;
 
     let finalText = "";
-    let lastInterimText = "";
-    let hadError = false;
 
     chatRecognition.onstart = () => {
       isChatRecording = true;
-
-      if(btn){
-        btn.classList.add("recording");
-        btn.innerHTML = "🎙️ Đang nghe, bấm để dừng";
-      }
-
-      if(status){
-        const label =
-          selectedLang === "vi-VN" ? "tiếng Việt" :
-          selectedLang === "zh-CN" ? "tiếng Trung" :
-          "tiếng Anh";
-
-        status.innerText = `Mic: Đang nghe ${label}...`;
-      }
-
-      if(input) input.value = "";
+      btn.classList.add("recording");
+      btn.innerHTML = "🎙️ Đang nghe...";
+      status.innerText = "Mic: Đang nghe, nói xong app sẽ tự gửi.";
+      input.value = "";
+      pauseChatAudio(); // Dừng đọc AI ngay khi bắt đầu thu âm
     };
 
     chatRecognition.onresult = event => {
       let interimText = "";
-
       for(let i = event.resultIndex; i < event.results.length; i++){
         const transcript = event.results[i][0].transcript || "";
-
         if(event.results[i].isFinal){
-          finalText += transcript + " ";
+          finalText += transcript;
         }else{
           interimText += transcript;
         }
       }
-
-      lastInterimText = interimText;
-
-      if(input){
-        input.value = (finalText + interimText).trim();
-      }
+      input.value = (finalText + interimText).trim();
     };
 
     chatRecognition.onerror = event => {
       console.warn("Speech recognition error:", event);
-      hadError = true;
-
-      if(status){
-        if(event.error === "not-allowed"){
-          status.innerText = "Mic: Bạn chưa cấp quyền micro.";
-        }else if(event.error === "no-speech"){
-          status.innerText = "Mic: Không nghe thấy tiếng nói.";
-        }else if(event.error === "network"){
-          status.innerText = "Mic: Lỗi mạng khi nhận diện giọng nói.";
-        }else{
-          status.innerText = `Mic: Lỗi ${event.error || "không xác định"}.`;
-        }
+      if(event.error === "not-allowed"){
+        status.innerText = "Mic: Bạn chưa cấp quyền micro.";
+      }else if(event.error === "no-speech"){
+        status.innerText = "Mic: Không nghe thấy tiếng nói.";
+      }else{
+        status.innerText = "Mic: Có lỗi khi nghe.";
       }
     };
 
     chatRecognition.onend = async () => {
       isChatRecording = false;
+      btn.classList.remove("recording");
+      btn.innerHTML = "🎤 Ghi âm";
 
-      if(btn){
-        btn.classList.remove("recording");
-        btn.innerHTML = "🎤 Ghi âm";
-      }
-
-      const text = (
-        finalText ||
-        input?.value ||
-        lastInterimText ||
-        ""
-      ).trim();
+      const text = (finalText || input.value || "").trim();
 
       if(text){
-        if(status) status.innerText = "Mic: Đã nghe xong, đang gửi AI.";
+        status.innerText = "Mic: Đã nghe xong, đang gửi AI.";
         await sendChatMessage(text);
-        if(status) status.innerText = "Mic: Sẵn sàng";
+        status.innerText = "Mic: Sẵn sàng (Nhớ chọn đúng ngôn ngữ Mic ở góc phải nhé!)";
       }else{
-        if(status && !hadError){
-          status.innerText = "Mic: Không nghe rõ nội dung.";
-        }
+        status.innerText = "Mic: Không nghe rõ nội dung.";
       }
     };
 
     chatRecognition.start();
   }catch(err){
     console.error(err);
-
     isChatRecording = false;
-
-    if(btn){
-      btn.classList.remove("recording");
-      btn.innerHTML = "🎤 Ghi âm";
-    }
-
-    if(status){
-      status.innerText = "Mic: Không bật được.";
-    }
+    btn.classList.remove("recording");
+    btn.innerHTML = "🎤 Ghi âm";
+    status.innerText = "Mic: Không bật được.";
   }
 }
 
-function stopChatSpeech(){
-  speechQueue = [];
-  isSpeakingQueue = false;
+function speakMixedTextFallback(text){
+  if(!window.speechSynthesis) return;
 
-  if(window.speechSynthesis){
-    window.speechSynthesis.cancel();
-  }
-}
+  // Hủy tiến trình đọc cũ để không bị dồn
+  window.speechSynthesis.cancel();
 
-function replayLastAIReply(){
-  if(!lastAIReply){
-    alert("Chưa có câu trả lời AI để nghe lại.");
-    return;
-  }
-
-  speakAIReply(lastAIReply);
-}
-
-function replayLastAIAudio(){
-  replayLastAIReply();
-}
-
-function pauseChatAudio(){
-  stopChatSpeech();
-}
-
-function speakAIReply(text){
-  const cleanText = String(text || "").trim();
-
-  if(!cleanText){
-    alert("Không có nội dung để đọc.");
-    return;
-  }
-
-  if(!window.speechSynthesis){
-    alert("Trình duyệt này không hỗ trợ đọc giọng nói.");
-    return;
-  }
-
-  stopChatSpeech();
-
-  const speakMode = document.getElementById("chatSpeakLangSelect")?.value || "auto";
-
-  let segments = [];
-
-  if(speakMode === "auto"){
-    segments = splitTextForAutoSpeech(cleanText);
-  }else{
-    segments = chunkText(cleanText).map(t => ({
-      text:t,
-      lang:speakMode
-    }));
-  }
-
-  speechQueue = segments.filter(s => s.text.trim());
-  isSpeakingQueue = true;
-
-  setTimeout(() => {
-    speakNextSegment();
-  }, 80);
-}
-
-function speakNextSegment(){
-  if(!isSpeakingQueue || speechQueue.length === 0){
-    isSpeakingQueue = false;
-    return;
-  }
-
-  const item = speechQueue.shift();
-
-  const utterance = new SpeechSynthesisUtterance(item.text);
-  utterance.lang = item.lang || "vi-VN";
-  utterance.rate = item.lang === "zh-CN" ? 0.82 : 0.95;
+  const utterance = new SpeechSynthesisUtterance(String(text || ""));
+  utterance.lang = detectMainSpeechLang(text);
+  utterance.rate = 0.92;
   utterance.pitch = 1;
-
-  const voice = pickVoiceForLang(item.lang);
-  if(voice) utterance.voice = voice;
-
-  utterance.onend = () => {
-    setTimeout(speakNextSegment, 80);
-  };
-
-  utterance.onerror = event => {
-    console.warn("Speech synthesis error:", event);
-    setTimeout(speakNextSegment, 80);
-  };
 
   window.speechSynthesis.speak(utterance);
 }
 
-function splitTextForAutoSpeech(text){
-  const source = String(text || "");
-  const parts = [];
-  const regex = /([\u4e00-\u9fff，。！？、；：“”《》（）\s]+)/g;
-
-  let lastIndex = 0;
-  let match;
-
-  while((match = regex.exec(source)) !== null){
-    const before = source.slice(lastIndex, match.index);
-    const chinese = match[0];
-
-    if(before.trim()){
-      chunkText(before).forEach(t => {
-        parts.push({
-          text:t,
-          lang:detectVietnameseOrEnglish(t)
-        });
-      });
-    }
-
-    if(chinese.trim()){
-      chunkText(chinese).forEach(t => {
-        parts.push({
-          text:t,
-          lang:"zh-CN"
-        });
-      });
-    }
-
-    lastIndex = regex.lastIndex;
-  }
-
-  const rest = source.slice(lastIndex);
-
-  if(rest.trim()){
-    chunkText(rest).forEach(t => {
-      parts.push({
-        text:t,
-        lang:detectVietnameseOrEnglish(t)
-      });
-    });
-  }
-
-  return parts.length ? parts : [{ text:source, lang:"vi-VN" }];
-}
-
-function detectVietnameseOrEnglish(text){
+function detectMainSpeechLang(text){
   const s = String(text || "");
-
+  const chineseCount = (s.match(/[\u4e00-\u9fff]/g) || []).length;
   const vietnameseCount = (
     s.match(/[ăâêôơưđĂÂÊÔƠƯĐáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/g) || []
   ).length;
 
-  if(vietnameseCount >= 1) return "vi-VN";
-
-  return "vi-VN";
-}
-
-function chunkText(text){
-  const s = String(text || "").replace(/\s+/g," ").trim();
-
-  if(!s) return [];
-
-  const sentences = s.match(/[^.!?。！？]+[.!?。！？]?/g) || [s];
-  const chunks = [];
-  let current = "";
-
-  sentences.forEach(sentence => {
-    const next = current ? `${current} ${sentence.trim()}` : sentence.trim();
-
-    if(next.length > 180){
-      if(current) chunks.push(current);
-      current = sentence.trim();
-    }else{
-      current = next;
-    }
-  });
-
-  if(current) chunks.push(current);
-
-  return chunks;
-}
-
-function pickVoiceForLang(lang){
-  if(!window.speechSynthesis) return null;
-
-  const voices = window.speechSynthesis.getVoices() || [];
-
-  if(!voices.length) return null;
-
-  const exact = voices.find(v => v.lang === lang);
-  if(exact) return exact;
-
-  const prefix = String(lang || "").split("-")[0];
-  const sameFamily = voices.find(v => String(v.lang || "").startsWith(prefix));
-  if(sameFamily) return sameFamily;
-
-  if(lang === "vi-VN"){
-    return voices.find(v => String(v.lang || "").startsWith("vi")) || null;
-  }
-
-  if(lang === "zh-CN"){
-    return voices.find(v => String(v.lang || "").startsWith("zh")) || null;
-  }
-
-  return null;
-}
-
-if(window.speechSynthesis){
-  window.speechSynthesis.onvoiceschanged = () => {
-    window.speechSynthesis.getVoices();
-  };
+  if(chineseCount >= 3) return "zh-CN";
+  if(vietnameseCount >= 2) return "vi-VN";
+  return "zh-CN"; // Ưu tiên giọng Trung nếu không rõ
 }
 
 document.addEventListener("keydown", function(e){
   const input = document.getElementById("chatInput");
-
   if(!input) return;
-
   const isChatActive = document.getElementById("view-chat")?.classList.contains("active");
-
   if(!isChatActive) return;
-
   if(document.activeElement === input && e.key === "Enter" && !e.shiftKey){
     e.preventDefault();
     sendChatMessage();
   }
 });
-
 
 /* INIT */
 window.onload = () => {
