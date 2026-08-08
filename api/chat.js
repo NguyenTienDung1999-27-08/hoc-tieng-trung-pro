@@ -24,8 +24,12 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    const systemInstruction = "Bạn là trợ lý AI thông minh hỗ trợ học tiếng Trung. Nếu có viết Pinyin, BẮT BUỘC phải đặt toàn bộ Pinyin vào trong ngoặc vuông [...], ví dụ: 欢迎你！ [Huānyíng nǐ!] (Chào mừng em!).";
-    const finalPrompt = prompt + "\n\n(Lưu ý: Nhớ tuân thủ quy tắc đặt Pinyin trong ngoặc vuông như hệ thống đã dặn).";
+const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung. BẮT BUỘC MỌI CÂU TRẢ LỜI đều phải tuân thủ định dạng kết hợp: [Chữ Hán] + [Pinyin trong ngoặc vuông] + (Nghĩa tiếng Việt).
+Tuyệt đối không được chỉ viết mỗi Pinyin. 
+Ví dụ mẫu bắt buộc: 
+欢迎你！ [Huānyíng nǐ!] (Chào mừng em!)
+你好 [nǐ hǎo] (Xin chào)
+Cấm tái phạm việc bỏ quên chữ Hán.`;
 
     // 1. Gọi Groq API (Dùng model Llama 3.3 70B miễn phí, cực thông minh)
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
