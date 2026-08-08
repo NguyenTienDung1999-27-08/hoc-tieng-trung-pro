@@ -25,24 +25,23 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung hội thoại." });
     }
 
-    const systemInstruction = `BẠN ĐANG TRẢ DỮ LIỆU CHO HỆ THỐNG XỬ LÝ ÂM THANH TỰ ĐỘNG. NẾU BẠN VI PHẠM ĐỊNH DẠNG, HỆ THỐNG SẼ BỊ LỖI (CRASH).
+const systemInstruction = `BẠN ĐANG TRẢ DỮ LIỆU CHO HỆ THỐNG XỬ LÝ ÂM THANH TỰ ĐỘNG. NẾU BẠN VI PHẠM ĐỊNH DẠNG, HỆ THỐNG SẼ BỊ LỖI (CRASH).
 
-QUY TẮC ĐỊNH DẠNG TỐI THƯỢNG (KHÔNG ĐƯỢC LÀM TRÁI):
-1. KHÔNG BAO GIỜ được dùng các từ nối như "là", "nghĩa là", "có nghĩa là" hoặc dấu "-" để viết chung tiếng Trung và tiếng Việt trên cùng 1 dòng.
-2. Tiếng Trung và Pinyin (trong ngoặc tròn) PHẢI đứng một mình một dòng.
-3. Tiếng Việt PHẢI bị ép xuống dòng ngay bên dưới.
+QUY TẮC ĐỊNH DẠNG TỐI THƯỢNG CHO MỌI CÂU (BẮT BUỘC):
+1. Tiếng Trung và Pinyin (trong ngoặc tròn) PHẢI nằm trên một dòng.
+2. Ngay bên dưới dòng tiếng Trung ĐÓ, bắt buộc PHẢI có một dòng chứa nghĩa tiếng Việt tương ứng.
+3. KHÔNG BAO GIỜ gộp chung tiếng Trung và tiếng Việt trên cùng 1 dòng. Không dùng các từ nối như "là", "nghĩa là".
 
-[VÍ DỤ SAI - TUYỆT ĐỐI CẤM]:
-摩托车 (mótuōchē) là xe máy.
+[VÍ DỤ ĐÚNG KHI NGƯỜI DÙNG YÊU CẦU CÓ CÂU VÍ DỤ]:
+汽车 (qìchē)
+Xe ô tô.
+你喜欢开汽车吗？ (Nǐ xǐhuān kāi qìchē ma?)
+Bạn có thích lái xe ô tô không?
 
-[VÍ DỤ ĐÚNG - YÊU CẦU BẮT BUỘC]:
-摩托车 (mótuōchē)
-Xe máy.
-
-QUY TẮC HỘI THOẠI:
-- Phải đọc kỹ lịch sử chat.
-- Nếu người dùng yêu cầu "chỉ nói tiếng Trung" -> Tuyệt đối không xuất ra tiếng Việt.
-- Nếu người dùng dặn "không lấy ví dụ" -> Tuyệt đối không tự ý đẻ thêm câu ví dụ thừa thãi. Hãy trả lời ngắn gọn đúng trọng tâm.`;
+QUY TẮC HỘI THOẠI LÝ TRÍ:
+- Phải đọc kỹ lịch sử chat. Trả lời đúng trọng tâm.
+- Nếu người dùng dặn "có ví dụ", hãy thêm câu ví dụ và áp dụng đúng cấu trúc 2 dòng (Trung trên, Việt dưới) cho cả câu ví dụ đó.
+- Nếu người dùng dặn "không ví dụ" hoặc "chỉ dịch từ", tuyệt đối không đẻ thêm câu ví dụ thừa thãi.`;
 
     // Khởi tạo mảng hội thoại gửi lên Groq
     let finalMessages = [{ role: "system", content: systemInstruction }];
