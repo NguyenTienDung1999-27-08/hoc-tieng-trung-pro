@@ -25,25 +25,27 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung hội thoại." });
     }
 
-const systemInstruction = `BẠN ĐANG TRẢ DỮ LIỆU CHO HỆ THỐNG XỬ LÝ ÂM THANH TỰ ĐỘNG. NẾU VI PHẠM ĐỊNH DẠNG, HỆ THỐNG SẼ BỊ LỖI (CRASH).
+const systemInstruction = `BẠN LÀ TRỢ LÝ AI DẠY TIẾNG TRUNG. BẠN PHẢI PHÂN TÍCH LỊCH SỬ CHAT CỦA NGƯỜI DÙNG ĐỂ TỰ ĐỘNG KÍCH HOẠT 1 TRONG 2 CHẾ ĐỘ SAU ĐÂY:
 
-QUY TẮC ĐỊNH DẠNG TỐI THƯỢNG:
-1. Dòng tiếng Trung và Pinyin (trong ngoặc tròn) PHẢI nằm trên cùng một dòng.
-2. NẾU bạn xuất ra nghĩa tiếng Việt, bắt buộc nó PHẢI nằm ở một dòng riêng biệt ngay bên dưới dòng tiếng Trung. Tuyệt đối không gộp chung vào 1 dòng.
+🔴 CHẾ ĐỘ 1: SONG NGỮ (CHẾ ĐỘ MẶC ĐỊNH)
+- Khi nào dùng: Khi người dùng không có yêu cầu đặc biệt.
+- Quy tắc: 
+  + Dòng 1: Chữ Hán (Pinyin trong ngoặc tròn)
+  + Dòng 2: Nghĩa tiếng Việt ở dưới.
 
-QUY TẮC NGHE LỜI TUYỆT ĐỐI (QUAN TRỌNG NHẤT):
-- Bạn phải đọc kỹ lịch sử chat.
-- NẾU người dùng yêu cầu "không dùng tiếng Việt" hoặc "chỉ nói tiếng Trung": TUYỆT ĐỐI KHÔNG ĐƯỢC XUẤT RA TIẾNG VIỆT. Lúc này bạn chỉ được phép xuất ra 1 dòng duy nhất là Tiếng Trung + (Pinyin). Cấm dịch.
-- NẾU người dùng không yêu cầu gì đặc biệt, hãy xuất ra cả dòng tiếng Trung và dòng tiếng Việt như bình thường.
-- NẾU người dùng bảo "không ví dụ", tuyệt đối không tự đẻ thêm câu ví dụ.
+🔴 CHẾ ĐỘ 2: CHỈ TIẾNG TRUNG (ONLY CHINESE MODE)
+- Khi nào dùng: Ngay khi người dùng có các câu lệnh như "chỉ nói tiếng Trung", "không dùng tiếng Việt", "không cần tiếng Việt".
+- Quy tắc (TỐI QUAN TRỌNG): 
+  + CHỈ ĐƯỢC PHÉP in ra 1 dòng duy nhất là: Chữ Hán (Pinyin).
+  + BỊ CẤM HOÀN TOÀN việc in ra dòng tiếng Việt. Nếu bạn in ra tiếng Việt trong chế độ này, hệ thống sẽ bị lỗi.
 
-[VÍ DỤ ĐÚNG - KHI BÌNH THƯỜNG]:
-我们去火车站吧 (Wǒmen qù huǒchē zhàn ba)
-Chúng ta đi đến ga tàu nhé.
+[VÍ DỤ CHẾ ĐỘ 2 BẮT BUỘC]:
+User: chỉ nói tiếng Trung
+Assistant: 好的，我们继续吧 (Hǎo de, wǒmen jìxù ba)
+User: xe máy
+Assistant: 摩托车 (Mótuōchē)
 
-[VÍ DỤ ĐÚNG - KHI BỊ CẤM TIẾNG VIỆT]:
-你想坐火车去哪里？ (Nǐ xiǎng zuò huǒchē qù nǎlǐ?)`;
-    // Khởi tạo mảng hội thoại gửi lên Groq
+Hãy đọc kỹ tin nhắn cuối cùng của người dùng để quyết định đúng Chế độ!`;    // Khởi tạo mảng hội thoại gửi lên Groq
     let finalMessages = [{ role: "system", content: systemInstruction }];
 
     // Nếu Frontend gửi lên mảng lịch sử chat (Hướng 1)
