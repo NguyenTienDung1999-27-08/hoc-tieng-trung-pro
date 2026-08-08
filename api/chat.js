@@ -24,16 +24,13 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung sinh động. 
-Mỗi khi trả lời, BẮT BUỘC phải trình bày theo định dạng xuống dòng rõ rệt như sau:
-[Chữ Hán] [Pinyin trong ngoặc vuông]
-(Nghĩa tiếng Việt xuống dòng ở phía dưới)
+    const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung. 
+Mỗi khi trả lời, BẮT BUỘC trình bày thành các dòng riêng biệt:
+- Dòng chứa tiếng Trung (có kèm Pinyin trong ngoặc vuông).
+- Dòng giải thích nghĩa hoàn toàn bằng tiếng Việt ở bên dưới.
+Không bao giờ được trộn lẫn tiếng Trung và tiếng Việt trên cùng một dòng.`;
 
-Ví dụ mẫu bắt buộc:
-欢迎你！ [Huānyíng nǐ!]
-(Chào mừng bạn đến với lớp học!)`;
-
-    const finalPrompt = prompt + "\n\n(Lưu ý: Nhớ tuân thủ quy tắc xuống dòng riêng biệt giữa tiếng Trung và tiếng Việt).";
+    const finalPrompt = prompt + "\n\n(Lưu ý: Luôn tách bạch rõ ràng dòng tiếng Trung và dòng tiếng Việt riêng biệt).";
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -64,7 +61,7 @@ Ví dụ mẫu bắt buộc:
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. XỬ LÝ ÂM THANH MƯỢT MÀ, KHẮC PHỤC GIỌNG TIẾNG VIỆT BỊ CHUA
+    // 2. LỌC VÀ TÁCH CHUẨN XÁC ĐỂ KHÔNG BAO GIỜ BỊ ĐỌC NHẦM
     let audioBase64 = "";
     try {
       const lines = aiText.split('\n');
@@ -74,31 +71,32 @@ Ví dụ mẫu bắt buộc:
         line = line.trim();
         if (!line) continue;
 
-        const isChineseLine = /[\u4e00-\u9fff]/.test(line);
-        let cleanText = line.replace(/[*_#]/g, "");
+        // KIỂM TRA CHÍNH XÁC: Nếu dòng có chứa ký tự chữ Hán -> Chắc chắn là tiếng Trung
+        const hasChinese = /[\u4e00-\u9fff]/.test(line);
         
-        if (isChineseLine) {
-          cleanText = cleanText.replace(/\[.*?\]/g, "").trim(); 
+        let cleanText = line.replace(/[*_#]/g, "");
+
+        if (hasChinese) {
+          // Xóa sạch phần Pinyin trong ngoặc vuông đi, chỉ lấy đúng chữ Hán để máy đọc chuẩn phát âm tiếng Trung
+          cleanText = cleanText.replace(/\[.*?\]/g, "").trim();
         }
 
-        if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(cleanText)) {
-          const textToEncode = encodeURIComponent(cleanText.substring(0, 200));
-          
-          // Dùng client và tham số tối ưu hóa để giọng đọc tiếng Việt ấm, tròn và không bị chói
-          // tl=vi-VN hoặc vi cho tiếng Việt, zh-CN cho tiếng Trung
-          const langParam = isChineseLine ? 'zh-CN' : 'vi';
-          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langParam}&q=${textToEncode}`;
-          
-          const audioResponse = await fetch(ttsUrl, {
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-            }
-          });
+        // Bỏ qua nếu dòng quá ngắn không có nội dung đọc
+        if (cleanText.length < 2) continue;
 
-          if (audioResponse.ok) {
-            const arrayBuffer = await audioResponse.arrayBuffer();
-            audioBuffers.push(Buffer.from(arrayBuffer));
+        const langParam = hasChinese ? 'zh-CN' : 'vi';
+        const textToEncode = encodeURIComponent(cleanText.substring(0, 200));
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langParam}&q=${textToEncode}`;
+        
+        const audioResponse = await fetch(ttsUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
           }
+        });
+
+        if (audioResponse.ok) {
+          const arrayBuffer = await audioResponse.arrayBuffer();
+          audioBuffers.push(Buffer.from(arrayBuffer));
         }
       }
 
