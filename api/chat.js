@@ -14,9 +14,9 @@ module.exports = async function (req, res) {
   }
 
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "Thiếu GEMINI_API_KEY trên Vercel." });
+      return res.status(500).json({ error: "Thiếu API_KEY trên Vercel." });
     }
 
     const { prompt, temperature } = req.body || {};
@@ -24,42 +24,46 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    const finalPrompt = prompt + "\n\n(LƯU Ý BẮT BUỘC TỪ HỆ THỐNG: Nếu có viết Pinyin, BẮT BUỘC phải đặt toàn bộ Pinyin vào trong ngoặc vuông [...]. Ví dụ: 欢迎你！ [Huānyíng nǐ!] (Chào mừng em!). Tuyệt đối không dùng định dạng khác để tránh lỗi hệ thống âm thanh.)";
+    const systemInstruction = "Bạn là trợ lý AI thông minh hỗ trợ học tiếng Trung. Nếu có viết Pinyin, BẮT BUỘC phải đặt toàn bộ Pinyin vào trong ngoặc vuông [...], ví dụ: 欢迎你！ [Huānyíng nǐ!] (Chào mừng em!).";
+    const finalPrompt = prompt + "\n\n(Lưu ý: Nhớ tuân thủ quy tắc đặt Pinyin trong ngoặc vuông như hệ thống đã dặn).";
 
-    // 1. Gọi Gemini 3.5-flash
-    const model = process.env.GEMINI_TEXT_MODEL || "gemini-3.5-flash"; 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    // 1. Gọi DeepSeek API (Dùng model deepseek-v4-flash cực nhanh và tối ưu)
+    const deepseekUrl = "https://api.deepseek.com/chat/completions";
 
-    const textResponse = await fetch(geminiUrl, {
+    const textResponse = await fetch(deepseekUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: finalPrompt }] }],
-        generationConfig: {
-          temperature: temperature || 0.6,
-          topP: 0.9,
-          maxOutputTokens: 1000
-        }
+        model: "deepseek-v4-flash",
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: finalPrompt }
+        ],
+        temperature: temperature || 0.6,
+        stream: false
       })
     });
 
     const textData = await textResponse.json();
     if (!textResponse.ok) {
-      throw new Error(textData?.error?.message || "Lỗi gọi AI Gemini.");
+      throw new Error(textData?.error?.message || "Lỗi gọi API DeepSeek.");
     }
 
-    const aiText = textData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const aiText = textData?.choices?.[0]?.message?.content?.trim();
     if (!aiText) {
-      throw new Error("Gemini không trả về nội dung.");
+      throw new Error("DeepSeek không trả về nội dung.");
     }
 
-    // 2. DỌN DẸP VĂN BẢN TRƯỚC KHI TẠO AUDIO
+    // 2. DỌN DẸP VĂN BẢN ĐỂ LÀM AUDIO (Lột sạch in đậm và Pinyin ngoặc vuông)
     let textForAudio = aiText;
     textForAudio = textForAudio.replace(/[*_#]/g, "");
     textForAudio = textForAudio.replace(/\[.*?\]/g, "");
     textForAudio = textForAudio.replace(/\([A-Za-zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s!?.,]+[-–—:]\s*/gi, "(");
 
-    // 3. TÁCH CÂU VÀ LẤY MP3 SONG SONG (TỐI ƯU HÓA TỐC ĐỘ)
+    // 3. TÁCH CÂU VÀ LẤY MP3 SONG SONG TỪ GOOGLE TRANSLATE TTS
     let audioBase64 = "";
     try {
       const segments = [];
@@ -94,7 +98,6 @@ module.exports = async function (req, res) {
         segments.push({ text: currentSegment, lang: currentLang });
       }
 
-      // Xử lý ném TẤT CẢ các luồng request lên Google cùng lúc (Parallel Fetching)
       const fetchPromises = segments.map(async (seg, index) => {
         if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(seg.text)) {
           const safeTextToRead = encodeURIComponent(seg.text.substring(0, 200));
@@ -107,16 +110,13 @@ module.exports = async function (req, res) {
               return { index, buffer: Buffer.from(arrayBuffer) };
             }
           } catch (e) {
-             console.warn("Lỗi tải MP3 cho segment:", e);
+             console.warn("Lỗi tải MP3 segment:", e);
           }
         }
         return { index, buffer: null };
       });
 
-      // Chờ tất cả request hoàn thành
       const fetchedResults = await Promise.all(fetchPromises);
-      
-      // Sắp xếp lại âm thanh theo đúng thứ tự mảng ban đầu
       fetchedResults.sort((a, b) => a.index - b.index);
       
       const audioBuffers = fetchedResults
