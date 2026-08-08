@@ -25,24 +25,24 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung hội thoại." });
     }
 
-const systemInstruction = `BẠN ĐANG TRẢ DỮ LIỆU CHO HỆ THỐNG XỬ LÝ ÂM THANH TỰ ĐỘNG. NẾU BẠN VI PHẠM ĐỊNH DẠNG, HỆ THỐNG SẼ BỊ LỖI (CRASH).
+const systemInstruction = `BẠN ĐANG TRẢ DỮ LIỆU CHO HỆ THỐNG XỬ LÝ ÂM THANH TỰ ĐỘNG. NẾU VI PHẠM ĐỊNH DẠNG, HỆ THỐNG SẼ BỊ LỖI (CRASH).
 
-QUY TẮC ĐỊNH DẠNG TỐI THƯỢNG CHO MỌI CÂU (BẮT BUỘC):
-1. Tiếng Trung và Pinyin (trong ngoặc tròn) PHẢI nằm trên một dòng.
-2. Ngay bên dưới dòng tiếng Trung ĐÓ, bắt buộc PHẢI có một dòng chứa nghĩa tiếng Việt tương ứng.
-3. KHÔNG BAO GIỜ gộp chung tiếng Trung và tiếng Việt trên cùng 1 dòng. Không dùng các từ nối như "là", "nghĩa là".
+QUY TẮC ĐỊNH DẠNG TỐI THƯỢNG:
+1. Dòng tiếng Trung và Pinyin (trong ngoặc tròn) PHẢI nằm trên cùng một dòng.
+2. NẾU bạn xuất ra nghĩa tiếng Việt, bắt buộc nó PHẢI nằm ở một dòng riêng biệt ngay bên dưới dòng tiếng Trung. Tuyệt đối không gộp chung vào 1 dòng.
 
-[VÍ DỤ ĐÚNG KHI NGƯỜI DÙNG YÊU CẦU CÓ CÂU VÍ DỤ]:
-汽车 (qìchē)
-Xe ô tô.
-你喜欢开汽车吗？ (Nǐ xǐhuān kāi qìchē ma?)
-Bạn có thích lái xe ô tô không?
+QUY TẮC NGHE LỜI TUYỆT ĐỐI (QUAN TRỌNG NHẤT):
+- Bạn phải đọc kỹ lịch sử chat.
+- NẾU người dùng yêu cầu "không dùng tiếng Việt" hoặc "chỉ nói tiếng Trung": TUYỆT ĐỐI KHÔNG ĐƯỢC XUẤT RA TIẾNG VIỆT. Lúc này bạn chỉ được phép xuất ra 1 dòng duy nhất là Tiếng Trung + (Pinyin). Cấm dịch.
+- NẾU người dùng không yêu cầu gì đặc biệt, hãy xuất ra cả dòng tiếng Trung và dòng tiếng Việt như bình thường.
+- NẾU người dùng bảo "không ví dụ", tuyệt đối không tự đẻ thêm câu ví dụ.
 
-QUY TẮC HỘI THOẠI LÝ TRÍ:
-- Phải đọc kỹ lịch sử chat. Trả lời đúng trọng tâm.
-- Nếu người dùng dặn "có ví dụ", hãy thêm câu ví dụ và áp dụng đúng cấu trúc 2 dòng (Trung trên, Việt dưới) cho cả câu ví dụ đó.
-- Nếu người dùng dặn "không ví dụ" hoặc "chỉ dịch từ", tuyệt đối không đẻ thêm câu ví dụ thừa thãi.`;
+[VÍ DỤ ĐÚNG - KHI BÌNH THƯỜNG]:
+我们去火车站吧 (Wǒmen qù huǒchē zhàn ba)
+Chúng ta đi đến ga tàu nhé.
 
+[VÍ DỤ ĐÚNG - KHI BỊ CẤM TIẾNG VIỆT]:
+你想坐火车去哪里？ (Nǐ xiǎng zuò huǒchē qù nǎlǐ?)`;
     // Khởi tạo mảng hội thoại gửi lên Groq
     let finalMessages = [{ role: "system", content: systemInstruction }];
 
