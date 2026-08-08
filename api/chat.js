@@ -1,50 +1,84 @@
 module.exports = async function (req, res) {
-  // CORS config
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+  res.setHeader("Access-Control-Allow-Credentials", true);
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS,PATCH,DELETE,POST,PUT");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
+  );
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Chỉ chấp nhận phương thức POST" });
+    return res.status(405).json({
+      error: "Chỉ chấp nhận phương thức POST"
+    });
   }
 
   try {
     const apiKey = process.env.GROQ_API_KEY;
+
     if (!apiKey) {
-      return res.status(500).json({ error: "Thiếu GROQ_API_KEY trên Vercel." });
+      return res.status(500).json({
+        error: "Thiếu GROQ_API_KEY trên Vercel."
+      });
     }
 
-    const { messages, prompt, temperature } = req.body || {};
-    
-    // ĐÂY LÀ ĐOẠN PROMPT ÉP JSON - TƯỚC QUYỀN GIAO TIẾP CỦA AI
-    const systemInstruction = `Bạn là một API xử lý ngôn ngữ. BẠN BẮT BUỘC PHẢI TRẢ VỀ DỮ LIỆU DƯỚI DẠNG ĐỊNH DẠNG JSON. KHÔNG ĐƯỢC CHÈN BẤT KỲ CÂU GIAO TIẾP NÀO VÀO (ví dụ: cấm nói "Tôi hiểu rồi", "Ví dụ là...").
+    const {
+      messages,
+      prompt,
+      temperature = 0.55,
+      enableAudio = true
+    } = req.body || {};
 
-CẤU TRÚC JSON DUY NHẤT ĐƯỢC CHẤP NHẬN:
-{
-  "data": [
-    {
-      "zh": "Chữ Hán (Pinyin trong ngoặc tròn)",
-      "vi": "Nghĩa tiếng Việt"
+    if (!messages && !prompt) {
+      return res.status(400).json({
+        error: "Thiếu nội dung hội thoại."
+      });
     }
-  ]
-}
 
-QUY TẮC NHẬP LIỆU VÀO JSON:
-1. NẾU người dùng bảo "không cần tiếng Việt", hãy để trống giá trị "vi": "".
-2. NẾU người dùng muốn câu ví dụ, hãy cho thẳng câu ví dụ bằng tiếng Trung vào "zh" và nghĩa vào "vi", không được kèm theo lời mào đầu.
-3. Giá trị "zh" CHỈ được chứa chữ Hán và Pinyin, tuyệt đối không có tiếng Việt bên trong.`;
+    const systemInstruction = `
+Bạn là gia sư tiếng Trung đang đối thoại trực tiếp với học viên.
 
-    let finalMessages = [{ role: "system", content: systemInstruction }];
+Nhiệm vụ:
+- Trả lời tự nhiên, ngắn gọn, giống 2 người đang nói chuyện.
+- Nếu người dùng nói tiếng Việt, trả lời tiếng Việt là chính.
+- Nếu phù hợp, thêm 1 câu tiếng Trung ngắn, kèm pinyin trong ngoặc.
+- Nếu người dùng nói tiếng Trung sai, sửa nhẹ nhàng, không làm họ ngại.
+- Không viết dài dòng.
+- Không dùng markdown phức tạp.
+- Tối đa 3 đến 5 câu.
+- Câu trả lời phải dễ đọc thành tiếng.
 
-    if (messages && Array.isArray(messages) && messages.length > 0) {
-      finalMessages = finalMessages.concat(messages);
+Ví dụ:
+User: Hôm nay luyện mua đồ nhé
+Assistant: Được chứ. Hôm nay mình luyện chủ đề mua đồ nhé. Bạn có thể nói: 我要买这个 (wǒ yào mǎi zhège) nghĩa là "Tôi muốn mua cái này". Bây giờ bạn thử nói một câu nhé.
+`;
+
+    let finalMessages = [
+      {
+        role: "system",
+        content: systemInstruction
+      }
+    ];
+
+    if (Array.isArray(messages) && messages.length > 0) {
+      const safeMessages = messages
+        .filter((m) => m && (m.role === "user" || m.role === "assistant") && m.content)
+        .slice(-12)
+        .map((m) => ({
+          role: m.role,
+          content: String(m.content).slice(0, 2000)
+        }));
+
+      finalMessages = finalMessages.concat(safeMessages);
     } else if (prompt) {
-      finalMessages.push({ role: "user", content: prompt });
+      finalMessages.push({
+        role: "user",
+        content: String(prompt).slice(0, 4000)
+      });
     }
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
@@ -56,88 +90,174 @@ QUY TẮC NHẬP LIỆU VÀO JSON:
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
+        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
         messages: finalMessages,
-        temperature: temperature || 0.6,
-        // Ép Groq phải trả về chuẩn JSON
-        response_format: { type: "json_object" },
+        temperature,
         stream: false
       })
     });
 
     const textData = await textResponse.json();
+
     if (!textResponse.ok) {
       throw new Error(textData?.error?.message || "Lỗi gọi API Groq.");
     }
 
-    const rawContent = textData?.choices?.[0]?.message?.content?.trim();
-    if (!rawContent) {
+    const aiText = textData?.choices?.[0]?.message?.content?.trim();
+
+    if (!aiText) {
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // Bóc tách JSON an toàn
-    let parsedJson;
-    try {
-      // Đôi khi AI bọc JSON trong markdown ```json ... ```
-      const cleanedJson = rawContent.replace(/```json/gi, '').replace(/```/gi, '').trim();
-      parsedJson = JSON.parse(cleanedJson);
-    } catch (e) {
-      console.error("Lỗi parse JSON:", rawContent);
-      throw new Error("AI không trả về đúng định dạng JSON.");
-    }
-
-    const dataArray = parsedJson.data || [];
-    let aiText = "";
     let audioBase64 = "";
-    const audioBuffers = [];
 
-    // Tự động xây dựng lại Text cho Frontend và Xử lý Audio siêu chuẩn
-    for (const item of dataArray) {
-      const zhText = item.zh || "";
-      const viText = item.vi || "";
-
-      if (!zhText) continue;
-
-      // 1. Dựng chữ hiển thị ra Web (luôn chuẩn form)
-      aiText += `${zhText}\n`;
-      if (viText) {
-        aiText += `${viText}\n`;
+    if (enableAudio) {
+      try {
+        audioBase64 = await buildGoogleTranslateAudio(aiText);
+      } catch (ttsError) {
+        console.warn("Lỗi Audio:", ttsError);
+        audioBase64 = "";
       }
-      aiText += `\n`; // Cách một dòng giữa các mục
-
-      // 2. Kéo Audio Tiếng Trung
-      let cleanZh = zhText.replace(/[*_#]/g, "").replace(/\(.*?\)/g, "").trim();
-      if (cleanZh) {
-        const zhUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=zh-CN&q=${encodeURIComponent(cleanZh)}`;
-        try {
-          const zhRes = await fetch(zhUrl, { headers: { "User-Agent": "Mozilla/5.0" }});
-          if (zhRes.ok) audioBuffers.push(Buffer.from(await zhRes.arrayBuffer()));
-        } catch(e) {}
-      }
-
-      // 3. Kéo Audio Tiếng Việt (chỉ kéo khi có dữ liệu)
-      let cleanVi = viText.replace(/[*_#]/g, "").trim();
-      if (cleanVi) {
-        const viUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=vi&q=${encodeURIComponent(cleanVi)}`;
-        try {
-          const viRes = await fetch(viUrl, { headers: { "User-Agent": "Mozilla/5.0" }});
-          if (viRes.ok) audioBuffers.push(Buffer.from(await viRes.arrayBuffer()));
-        } catch(e) {}
-      }
-    }
-
-    if (audioBuffers.length > 0) {
-      const combinedBuffer = Buffer.concat(audioBuffers);
-      audioBase64 = combinedBuffer.toString('base64');
     }
 
     return res.status(200).json({
-      result: aiText.trim(),          
-      audioBase64: audioBase64 
+      result: aiText,
+      audioBase64,
+      mimeType: "audio/mpeg"
     });
 
   } catch (error) {
     console.error("Lỗi Server:", error);
-    return res.status(500).json({ error: error.message });
+
+    return res.status(500).json({
+      error: error.message || "Lỗi server."
+    });
   }
 };
+
+async function buildGoogleTranslateAudio(aiText) {
+  const lines = String(aiText || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const audioBuffers = [];
+
+  for (let line of lines) {
+    const segments = splitMixedLanguageLine(line);
+
+    for (const seg of segments) {
+      const cleanText = seg.text
+        .replace(/[*_#`]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (cleanText.length < 2) continue;
+
+      const chunks = splitTextIntoChunks(cleanText, 180);
+
+      for (const chunk of chunks) {
+        const textToEncode = encodeURIComponent(chunk);
+        const ttsUrl =
+          `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${seg.lang}&q=${textToEncode}`;
+
+        const audioResponse = await fetch(ttsUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0"
+          }
+        });
+
+        if (audioResponse.ok) {
+          const arrayBuffer = await audioResponse.arrayBuffer();
+          audioBuffers.push(Buffer.from(arrayBuffer));
+        }
+      }
+    }
+  }
+
+  if (audioBuffers.length === 0) {
+    return "";
+  }
+
+  const combinedBuffer = Buffer.concat(audioBuffers);
+  return combinedBuffer.toString("base64");
+}
+
+function splitMixedLanguageLine(line) {
+  const source = String(line || "");
+  const parts = [];
+
+  const regex = /([\u4e00-\u9fff，。！？、；：“”《》（）]+)/g;
+
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(source)) !== null) {
+    const before = source.slice(lastIndex, match.index);
+    const chinese = match[0];
+
+    if (before.trim()) {
+      parts.push({
+        text: before,
+        lang: detectLatinLang(before)
+      });
+    }
+
+    if (chinese.trim()) {
+      parts.push({
+        text: chinese,
+        lang: "zh-CN"
+      });
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  const rest = source.slice(lastIndex);
+
+  if (rest.trim()) {
+    parts.push({
+      text: rest,
+      lang: detectLatinLang(rest)
+    });
+  }
+
+  return parts.length ? parts : [{ text: source, lang: "vi" }];
+}
+
+function detectLatinLang(text) {
+  const s = String(text || "");
+
+  const vietnameseChars =
+    /[ăâêôơưđĂÂÊÔƠƯĐáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/;
+
+  if (vietnameseChars.test(s)) return "vi";
+
+  return "vi";
+}
+
+function splitTextIntoChunks(text, maxLength = 180) {
+  const s = String(text || "").trim();
+
+  if (s.length <= maxLength) return [s];
+
+  const chunks = [];
+  let current = "";
+
+  const words = s.split(/\s+/);
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+
+    if (next.length > maxLength) {
+      if (current) chunks.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) chunks.push(current);
+
+  return chunks;
+}
