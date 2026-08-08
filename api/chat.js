@@ -14,9 +14,9 @@ module.exports = async function (req, res) {
   }
 
   try {
-    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "Thiếu API_KEY trên Vercel." });
+      return res.status(500).json({ error: "Thiếu GROQ_API_KEY trên Vercel." });
     }
 
     const { prompt, temperature } = req.body || {};
@@ -27,17 +27,17 @@ module.exports = async function (req, res) {
     const systemInstruction = "Bạn là trợ lý AI thông minh hỗ trợ học tiếng Trung. Nếu có viết Pinyin, BẮT BUỘC phải đặt toàn bộ Pinyin vào trong ngoặc vuông [...], ví dụ: 欢迎你！ [Huānyíng nǐ!] (Chào mừng em!).";
     const finalPrompt = prompt + "\n\n(Lưu ý: Nhớ tuân thủ quy tắc đặt Pinyin trong ngoặc vuông như hệ thống đã dặn).";
 
-    // 1. Gọi DeepSeek API (Dùng model deepseek-v4-flash cực nhanh và tối ưu)
-    const deepseekUrl = "https://api.deepseek.com/chat/completions";
+    // 1. Gọi Groq API (Dùng model Llama 3.3 70B miễn phí, cực thông minh)
+    const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
 
-    const textResponse = await fetch(deepseekUrl, {
+    const textResponse = await fetch(groqUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "deepseek-v4-flash",
+        model: "llama-3.3-70b-versatile",
         messages: [
           { role: "system", content: systemInstruction },
           { role: "user", content: finalPrompt }
@@ -49,12 +49,12 @@ module.exports = async function (req, res) {
 
     const textData = await textResponse.json();
     if (!textResponse.ok) {
-      throw new Error(textData?.error?.message || "Lỗi gọi API DeepSeek.");
+      throw new Error(textData?.error?.message || "Lỗi gọi API Groq.");
     }
 
     const aiText = textData?.choices?.[0]?.message?.content?.trim();
     if (!aiText) {
-      throw new Error("DeepSeek không trả về nội dung.");
+      throw new Error("Groq không trả về nội dung.");
     }
 
     // 2. DỌN DẸP VĂN BẢN ĐỂ LÀM AUDIO (Lột sạch in đậm và Pinyin ngoặc vuông)
