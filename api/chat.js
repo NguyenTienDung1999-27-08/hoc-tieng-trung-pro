@@ -24,19 +24,21 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    // Ép AI tách dòng rõ ràng giữa Tiếng Trung và Tiếng Việt để âm thanh không bị lẫn lộn
-    const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung sinh động. 
-Mỗi khi trả lời, BẮT BUỘC phải trình bày theo định dạng xuống dòng rõ rệt như sau:
-[Chữ Hán] [Pinyin trong ngoặc vuông]
-(Nghĩa tiếng Việt xuống dòng ở phía dưới)
+    // ÉP CỰC CĂNG: Không được mất chữ Hán, Pinyin ngoặc tròn, KHÔNG chèn chữ Hán vào tiếng Việt
+    const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung. 
+Mỗi khi trả lời, BẮT BUỘC tuân thủ nghiêm ngặt 3 quy tắc sau:
+1. PHẢI LUÔN CÓ CHỮ HÁN ở dòng đầu tiên, kèm Pinyin đặt trong NGOẶC TRÒN (...).
+2. Nghĩa tiếng Việt phải nằm ở một dòng riêng biệt ngay bên dưới.
+3. TUYỆT ĐỐI KHÔNG ĐƯỢC viết bất kỳ chữ Hán hay Pinyin nào vào dòng tiếng Việt (để hệ thống phát âm không bị lỗi).
 
-Ví dụ mẫu bắt buộc:
-欢迎你！ [Huānyíng nǐ!]
-(Chào mừng bạn đến với lớp học!)
+Ví dụ mẫu bắt buộc đúng 100%:
+摩托车 (mótuōchē)
+Bạn có thích đi xe máy không?
 
-Tuyệt đối không gộp chung tiếng Trung và tiếng Việt vào cùng một dòng để âm thanh đọc được mạch lạc, tự nhiên.`;
+你好 (nǐ hǎo)
+Xin chào bạn!`;
 
-    const finalPrompt = prompt + "\n\n(Lưu ý: Nhớ tuân thủ quy tắc xuống dòng riêng biệt giữa tiếng Trung và tiếng Việt).";
+    const finalPrompt = prompt + "\n\n(Lưu ý: BẮT BUỘC có chữ Hán và Pinyin trong ngoặc tròn. Tuyệt đối không chèn chữ Hán vào dòng tiếng Việt).";
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -67,59 +69,51 @@ Tuyệt đối không gộp chung tiếng Trung và tiếng Việt vào cùng m�
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. TÁCH VÀ XỬ LÝ AUDIO RIÊNG BIỆT TỪNG DÒNG (TRUNG - VIỆT)
+    // 2. LỌC VÀ TÁCH CHUẨN XÁC, XÓA SẠCH NGOẶC TRÒN Pinyin KHI GỌI AUDIO
     let audioBase64 = "";
     try {
-      // Chia nhỏ văn bản theo từng dòng để xử lý tốc độ và nhịp điệu đọc chuẩn hơn
       const lines = aiText.split('\n');
-      const fetchPromises = [];
+      const audioBuffers = [];
 
-      for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-        let line = lines[lineIndex].trim();
+      for (let line of lines) {
+        line = line.trim();
         if (!line) continue;
 
-        // Nhận diện dòng chứa tiếng Trung hay tiếng Việt
-        const isChineseLine = /[\u4e00-\u9fff]/.test(line);
-        const lang = isChineseLine ? "zh-CN" : "vi";
-
-        // Dọn dẹp ký tự thừa để đọc mượt mà
+        const hasChinese = /[\u4e00-\u9fff]/.test(line);
         let cleanText = line.replace(/[*_#]/g, "");
-        if (isChineseLine) {
-          // Với dòng tiếng Trung, giữ lại Hán tự và Pinyin (hoặc lược bỏ Pinyin nếu Google đọc bị ngọng, ở đây giữ nguyên Hán tự là chính)
-          cleanText = cleanText.replace(/\[.*?\]/g, "").trim();
+
+        if (hasChinese) {
+          // Xóa sạch phần Pinyin trong ngoặc tròn đi, chỉ lấy chữ Hán để đọc tiếng Trung
+          cleanText = cleanText.replace(/\(.*?\)/g, "").trim();
         }
 
-        if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(cleanText)) {
-          const safeTextToRead = encodeURIComponent(cleanText.substring(0, 200));
-          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${safeTextToRead}`;
-          
-          fetchPromises.push(
-            fetch(ttsUrl)
-              .then(async (audioResponse) => {
-                if (audioResponse.ok) {
-                  const arrayBuffer = await audioResponse.arrayBuffer();
-                  return { index: lineIndex, buffer: Buffer.from(arrayBuffer) };
-                }
-                return null;
-              })
-              .catch(() => null)
-          );
+        if (cleanText.length < 2) continue;
+
+        const langParam = hasChinese ? 'zh-CN' : 'vi';
+        const textToEncode = encodeURIComponent(cleanText.substring(0, 200));
+        
+        // Dùng client=gtx để giọng Việt đầm ấm, không bị chua
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langParam}&q=${textToEncode}`;
+        
+        const audioResponse = await fetch(ttsUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+          }
+        });
+
+        if (audioResponse.ok) {
+          const arrayBuffer = await audioResponse.arrayBuffer();
+          audioBuffers.push(Buffer.from(arrayBuffer));
         }
       }
 
-      const fetchedResults = await Promise.all(fetchPromises);
-      const validBuffers = fetchedResults
-        .filter(res => res !== null && res.buffer !== null)
-        .sort((a, b) => a.index - b.index)
-        .map(res => res.buffer);
-
-      if (validBuffers.length > 0) {
-        const combinedBuffer = Buffer.concat(validBuffers);
+      if (audioBuffers.length > 0) {
+        const combinedBuffer = Buffer.concat(audioBuffers);
         audioBase64 = combinedBuffer.toString('base64');
       }
 
     } catch (ttsError) {
-      console.warn("Lỗi xử lý TTS dòng:", ttsError);
+      console.warn("Lỗi Audio:", ttsError);
     }
 
     return res.status(200).json({
