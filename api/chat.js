@@ -45,16 +45,44 @@ Bạn là gia sư tiếng Trung đang đối thoại trực tiếp với học v
 Nhiệm vụ:
 - Trả lời tự nhiên, ngắn gọn, giống 2 người đang nói chuyện.
 - Nếu người dùng nói tiếng Việt, trả lời tiếng Việt là chính.
-- Nếu phù hợp, thêm 1 câu tiếng Trung ngắn, kèm pinyin trong ngoặc.
+- Nếu phù hợp, dạy thêm 1 câu tiếng Trung ngắn.
 - Nếu người dùng nói tiếng Trung sai, sửa nhẹ nhàng, không làm họ ngại.
 - Không viết dài dòng.
 - Không dùng markdown phức tạp.
-- Tối đa 3 đến 5 câu.
-- Câu trả lời phải dễ đọc thành tiếng.
+- Tối đa 3 đến 5 dòng.
 
-Ví dụ:
-User: Hôm nay luyện mua đồ nhé
-Assistant: Được chứ. Hôm nay mình luyện chủ đề mua đồ nhé. Bạn có thể nói: 我要买这个 (wǒ yào mǎi zhège) nghĩa là "Tôi muốn mua cái này". Bây giờ bạn thử nói một câu nhé.
+QUY TẮC ĐỊNH DẠNG BẮT BUỘC ĐỂ HỆ THỐNG ĐỌC GIỌNG KHÔNG BỊ LẪN:
+1. Không được trộn tiếng Việt, chữ Hán và pinyin trong cùng một dòng.
+2. Nếu có câu tiếng Trung, phải tách thành 3 dòng riêng:
+中文: câu chữ Hán
+Pinyin: pinyin
+Nghĩa: nghĩa tiếng Việt
+3. Dòng tiếng Việt giải thích thì chỉ viết tiếng Việt, không chen chữ Hán.
+4. Dòng 中文 chỉ chứa chữ Hán và dấu câu tiếng Trung, không chen tiếng Việt hoặc pinyin.
+5. Dòng Pinyin chỉ chứa pinyin latin, không chen tiếng Việt.
+6. Dòng Nghĩa chỉ chứa nghĩa tiếng Việt.
+7. Không viết câu kiểu: "Bạn có thể nói: 我肚子疼 (wǒ dùzi téng), nghĩa là..."
+8. Nếu cần hỏi tiếp, hãy viết câu hỏi tiếp bằng tiếng Việt ở dòng riêng.
+
+Ví dụ đúng:
+Bạn bị đau bụng à? Mình học câu này nhé.
+中文: 我肚子疼。
+Pinyin: wǒ dùzi téng.
+Nghĩa: Tôi đau bụng.
+Bạn thử đọc lại câu tiếng Trung này nhé.
+
+Ví dụ đúng:
+Được chứ. Hôm nay mình luyện chủ đề mua đồ nhé.
+中文: 我要买这个。
+Pinyin: wǒ yào mǎi zhège.
+Nghĩa: Tôi muốn mua cái này.
+Bây giờ bạn thử nói một câu nhé.
+
+Ví dụ sai, tuyệt đối không viết:
+Đau bụng à, bạn có thể nói: 我肚子疼 (wǒ dùzi téng), nghĩa là "Tôi đau bụng".
+
+Ví dụ sai, tuyệt đối không viết:
+Bạn có thể nói 我肚子疼, pinyin là wǒ dùzi téng.
 `;
 
     let finalMessages = [
@@ -103,11 +131,13 @@ Assistant: Được chứ. Hôm nay mình luyện chủ đề mua đồ nhé. B�
       throw new Error(textData?.error?.message || "Lỗi gọi API Groq.");
     }
 
-    const aiText = textData?.choices?.[0]?.message?.content?.trim();
+    let aiText = textData?.choices?.[0]?.message?.content?.trim();
 
     if (!aiText) {
       throw new Error("Groq không trả về nội dung.");
     }
+
+    aiText = normalizeAssistantFormat(aiText);
 
     let audioBase64 = "";
 
@@ -135,6 +165,17 @@ Assistant: Được chứ. Hôm nay mình luyện chủ đề mua đồ nhé. B�
   }
 };
 
+function normalizeAssistantFormat(text) {
+  let out = String(text || "").trim();
+
+  out = out
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+$/gm, "");
+
+  return out;
+}
+
 async function buildGoogleTranslateAudio(aiText) {
   const lines = String(aiText || "")
     .split("\n")
@@ -149,6 +190,7 @@ async function buildGoogleTranslateAudio(aiText) {
     for (const seg of segments) {
       const cleanText = seg.text
         .replace(/[*_#`]/g, "")
+        .replace(/[“”"]/g, "")
         .replace(/\s+/g, " ")
         .trim();
 
@@ -184,9 +226,52 @@ async function buildGoogleTranslateAudio(aiText) {
 }
 
 function splitMixedLanguageLine(line) {
-  const source = String(line || "");
-  const parts = [];
+  const source = String(line || "").trim();
 
+  if (!source) return [];
+
+  if (/^Pinyin\s*:/i.test(source)) {
+    return [];
+  }
+
+  if (/^中文\s*:/i.test(source)) {
+    const chineseText = source
+      .replace(/^中文\s*:/i, "")
+      .replace(/\([^)]*\)/g, "")
+      .replace(/（[^）]*）/g, "")
+      .trim();
+
+    return chineseText
+      ? [{
+          text: chineseText,
+          lang: "zh-CN"
+        }]
+      : [];
+  }
+
+  if (/^Nghĩa\s*:/i.test(source)) {
+    const meaningText = source
+      .replace(/^Nghĩa\s*:/i, "")
+      .trim();
+
+    return meaningText
+      ? [{
+          text: meaningText,
+          lang: "vi"
+        }]
+      : [];
+  }
+
+  const hasChinese = /[\u4e00-\u9fff]/.test(source);
+
+  if (!hasChinese) {
+    return [{
+      text: removePinyinParentheses(source),
+      lang: detectLatinLang(source)
+    }];
+  }
+
+  const parts = [];
   const regex = /([\u4e00-\u9fff，。！？、；：“”《》（）]+)/g;
 
   let lastIndex = 0;
@@ -196,10 +281,12 @@ function splitMixedLanguageLine(line) {
     const before = source.slice(lastIndex, match.index);
     const chinese = match[0];
 
-    if (before.trim()) {
+    const cleanBefore = removePinyinParentheses(before).trim();
+
+    if (cleanBefore) {
       parts.push({
-        text: before,
-        lang: detectLatinLang(before)
+        text: cleanBefore,
+        lang: detectLatinLang(cleanBefore)
       });
     }
 
@@ -213,9 +300,9 @@ function splitMixedLanguageLine(line) {
     lastIndex = regex.lastIndex;
   }
 
-  const rest = source.slice(lastIndex);
+  const rest = removePinyinParentheses(source.slice(lastIndex)).trim();
 
-  if (rest.trim()) {
+  if (rest) {
     parts.push({
       text: rest,
       lang: detectLatinLang(rest)
@@ -223,6 +310,14 @@ function splitMixedLanguageLine(line) {
   }
 
   return parts.length ? parts : [{ text: source, lang: "vi" }];
+}
+
+function removePinyinParentheses(text) {
+  return String(text || "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/（[^）]*）/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function detectLatinLang(text) {
