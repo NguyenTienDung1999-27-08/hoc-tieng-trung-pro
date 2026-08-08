@@ -19,25 +19,42 @@ module.exports = async function (req, res) {
       return res.status(500).json({ error: "Thiếu GROQ_API_KEY trên Vercel." });
     }
 
-    const { prompt, temperature } = req.body || {};
-    if (!prompt) {
-      return res.status(400).json({ error: "Thiếu nội dung prompt." });
+    // Đổi mới: Nhận cả mảng `messages` từ Frontend thay vì chỉ `prompt`
+    const { messages, prompt, temperature } = req.body || {};
+    if (!messages && !prompt) {
+      return res.status(400).json({ error: "Thiếu nội dung hội thoại." });
     }
 
-    // ĐÃ SỬA LẠI: Ưu tiên sự linh hoạt, nghe lời người dùng tuyệt đối.
     const systemInstruction = `Bạn là giáo viên AI dạy tiếng Trung linh hoạt và thông minh.
-ĐIỀU QUAN TRỌNG NHẤT: Bạn PHẢI trò chuyện tự nhiên và tuân thủ mọi yêu cầu TỨC THỜI của người dùng. 
-- Nếu người dùng bảo "chỉ dùng tiếng Trung", bạn không được viết tiếng Việt.
+ĐIỀU QUAN TRỌNG NHẤT: Bạn PHẢI trò chuyện tự nhiên và tuân thủ mọi yêu cầu TỨC THỜI của người dùng dựa trên toàn bộ lịch sử chat. 
+- Nếu người dùng bảo "chỉ dùng tiếng Trung", bạn không được xuất ra tiếng Việt ở các lượt sau.
 - Nếu người dùng bảo "không lấy ví dụ", bạn tuyệt đối không đưa ra ví dụ.
 - Hãy linh động theo mạch hội thoại.
 
 QUY TẮC ĐỊNH DẠNG ÂM THANH (Chỉ áp dụng với những nội dung bạn quyết định xuất ra):
-1. Khi viết tiếng Trung, phải kèm Pinyin trong ngoặc tròn (...). VD: 汽车 (qìchē).
+1. Khi viết tiếng Trung, phải kèm Pinyin trong ngoặc tròn (...).
 2. Nếu câu trả lời có chứa cả tiếng Việt, thì tiếng Việt PHẢI nằm ở dòng hoàn toàn riêng biệt.
 3. KHÔNG chèn chữ Hán hay Pinyin vào cùng một dòng với tiếng Việt.`;
 
-    // Không ép cứng quy tắc vào prompt của người dùng nữa để AI thở
-    const finalPrompt = prompt;
+    // Khởi tạo mảng hội thoại gửi lên Groq
+    let finalMessages = [{ role: "system", content: systemInstruction }];
+
+    // Nếu Frontend gửi lên mảng lịch sử chat (Hướng 1)
+    if (messages && Array.isArray(messages) && messages.length > 0) {
+      // Bí kíp: Nhồi thêm lời nhắc ngầm vào đuôi câu hỏi mới nhất của người dùng
+      const lastIndex = messages.length - 1;
+      if (messages[lastIndex].role === "user") {
+         messages[lastIndex].content += "\n\n(Lưu ý: Đọc kỹ lịch sử chat, tuân thủ đúng yêu cầu của người dùng và nhớ giữ định dạng Pinyin ngoặc tròn).";
+      }
+      finalMessages = finalMessages.concat(messages);
+    } 
+    // Fallback dự phòng nếu Frontend chưa kịp sửa, vẫn gửi kiểu cũ
+    else if (prompt) {
+      finalMessages.push({ 
+        role: "user", 
+        content: prompt + "\n\n(Lưu ý: Tuân thủ quy tắc định dạng Pinyin ngoặc tròn và xuống dòng rõ ràng)." 
+      });
+    }
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -49,10 +66,7 @@ QUY TẮC ĐỊNH DẠNG ÂM THANH (Chỉ áp dụng với những nội dung b�
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemInstruction },
-          { role: "user", content: finalPrompt }
-        ],
+        messages: finalMessages,
         temperature: temperature || 0.6,
         stream: false
       })
@@ -68,7 +82,7 @@ QUY TẮC ĐỊNH DẠNG ÂM THANH (Chỉ áp dụng với những nội dung b�
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. LỌC VÀ TÁCH AUDIO (Giữ nguyên logic cực mượt như cũ)
+    // XỬ LÝ AUDIO MƯỢT MÀ NHƯ CŨ
     let audioBase64 = "";
     try {
       const lines = aiText.split('\n');
@@ -92,9 +106,7 @@ QUY TẮC ĐỊNH DẠNG ÂM THANH (Chỉ áp dụng với những nội dung b�
         const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langParam}&q=${textToEncode}`;
         
         const audioResponse = await fetch(ttsUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-          }
+          headers: { "User-Agent": "Mozilla/5.0" }
         });
 
         if (audioResponse.ok) {
@@ -107,7 +119,6 @@ QUY TẮC ĐỊNH DẠNG ÂM THANH (Chỉ áp dụng với những nội dung b�
         const combinedBuffer = Buffer.concat(audioBuffers);
         audioBase64 = combinedBuffer.toString('base64');
       }
-
     } catch (ttsError) {
       console.warn("Lỗi Audio:", ttsError);
     }
@@ -119,8 +130,6 @@ QUY TẮC ĐỊNH DẠNG ÂM THANH (Chỉ áp dụng với những nội dung b�
 
   } catch (error) {
     console.error("Lỗi Server:", error);
-    return res.status(500).json({
-      error: error.message || "Lỗi server không xác định."
-    });
+    return res.status(500).json({ error: error.message });
   }
 };
