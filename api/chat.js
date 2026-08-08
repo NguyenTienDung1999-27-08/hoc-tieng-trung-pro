@@ -24,22 +24,19 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung. 
-Mỗi khi trả lời, BẮT BUỘC tuân thủ nghiêm ngặt định dạng sau:
-- PHẢI LUÔN CÓ CHỮ HÁN. Không bao giờ được bỏ quên chữ Hán.
-- Cấu trúc trình bày mỗi câu/từ tiếng Trung bắt buộc phải gồm: Chữ Hán, sau đó đến Pinyin nằm trong ngoặc tròn (...).
-- Nghĩa tiếng Việt đặt ở dòng riêng biệt bên dưới.
+    // Ép AI tách dòng rõ ràng giữa Tiếng Trung và Tiếng Việt để âm thanh không bị lẫn lộn
+    const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung sinh động. 
+Mỗi khi trả lời, BẮT BUỘC phải trình bày theo định dạng xuống dòng rõ rệt như sau:
+[Chữ Hán] [Pinyin trong ngoặc vuông]
+(Nghĩa tiếng Việt xuống dòng ở phía dưới)
 
-Ví dụ mẫu bắt buộc đúng 100%:
-你好 (nǐ hǎo)
-Xin chào bạn!
+Ví dụ mẫu bắt buộc:
+欢迎你！ [Huānyíng nǐ!]
+(Chào mừng bạn đến với lớp học!)
 
-汽车 (qìchē)
-Xe ô tô
+Tuyệt đối không gộp chung tiếng Trung và tiếng Việt vào cùng một dòng để âm thanh đọc được mạch lạc, tự nhiên.`;
 
-Tuyệt đối không được chỉ viết mỗi Pinyin mà mất chữ Hán.`;
-
-    const finalPrompt = prompt + "\n\n(Lưu ý: BẮT BUỘC phải có Chữ Hán kèm Pinyin trong ngoặc tròn, không được bỏ quên chữ Hán).";
+    const finalPrompt = prompt + "\n\n(Lưu ý: Nhớ tuân thủ quy tắc xuống dòng riêng biệt giữa tiếng Trung và tiếng Việt).";
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -70,48 +67,59 @@ Tuyệt đối không được chỉ viết mỗi Pinyin mà mất chữ Hán.`;
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. LỌC VÀ TÁCH CHUẨN XÁC, XÓA SẠCH NGOẶC TRÒN Pinyin KHI GỌI AUDIO
+    // 2. TÁCH VÀ XỬ LÝ AUDIO RIÊNG BIỆT TỪNG DÒNG (TRUNG - VIỆT)
     let audioBase64 = "";
     try {
+      // Chia nhỏ văn bản theo từng dòng để xử lý tốc độ và nhịp điệu đọc chuẩn hơn
       const lines = aiText.split('\n');
-      const audioBuffers = [];
+      const fetchPromises = [];
 
-      for (let line of lines) {
-        line = line.trim();
+      for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        let line = lines[lineIndex].trim();
         if (!line) continue;
 
-        const hasChinese = /[\u4e00-\u9fff]/.test(line);
-        let cleanText = line.replace(/[*_#]/g, "");
+        // Nhận diện dòng chứa tiếng Trung hay tiếng Việt
+        const isChineseLine = /[\u4e00-\u9fff]/.test(line);
+        const lang = isChineseLine ? "zh-CN" : "vi";
 
-        if (hasChinese) {
-          cleanText = cleanText.replace(/\(.*?\)/g, "").trim();
+        // Dọn dẹp ký tự thừa để đọc mượt mà
+        let cleanText = line.replace(/[*_#]/g, "");
+        if (isChineseLine) {
+          // Với dòng tiếng Trung, giữ lại Hán tự và Pinyin (hoặc lược bỏ Pinyin nếu Google đọc bị ngọng, ở đây giữ nguyên Hán tự là chính)
+          cleanText = cleanText.replace(/\[.*?\]/g, "").trim();
         }
 
-        if (cleanText.length < 2) continue;
-
-        const langParam = hasChinese ? 'zh-CN' : 'vi';
-        const textToEncode = encodeURIComponent(cleanText.substring(0, 200));
-        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langParam}&q=${textToEncode}`;
-        
-        const audioResponse = await fetch(ttsUrl, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-          }
-        });
-
-        if (audioResponse.ok) {
-          const arrayBuffer = await audioResponse.arrayBuffer();
-          audioBuffers.push(Buffer.from(arrayBuffer));
+        if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(cleanText)) {
+          const safeTextToRead = encodeURIComponent(cleanText.substring(0, 200));
+          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${safeTextToRead}`;
+          
+          fetchPromises.push(
+            fetch(ttsUrl)
+              .then(async (audioResponse) => {
+                if (audioResponse.ok) {
+                  const arrayBuffer = await audioResponse.arrayBuffer();
+                  return { index: lineIndex, buffer: Buffer.from(arrayBuffer) };
+                }
+                return null;
+              })
+              .catch(() => null)
+          );
         }
       }
 
-      if (audioBuffers.length > 0) {
-        const combinedBuffer = Buffer.concat(audioBuffers);
+      const fetchedResults = await Promise.all(fetchPromises);
+      const validBuffers = fetchedResults
+        .filter(res => res !== null && res.buffer !== null)
+        .sort((a, b) => a.index - b.index)
+        .map(res => res.buffer);
+
+      if (validBuffers.length > 0) {
+        const combinedBuffer = Buffer.concat(validBuffers);
         audioBase64 = combinedBuffer.toString('base64');
       }
 
     } catch (ttsError) {
-      console.warn("Lỗi Audio:", ttsError);
+      console.warn("Lỗi xử lý TTS dòng:", ttsError);
     }
 
     return res.status(200).json({
