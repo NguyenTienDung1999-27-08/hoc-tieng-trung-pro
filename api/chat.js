@@ -1,3 +1,5 @@
+const { EdgeTTS } = require("edge-tts"); // Sử dụng thư viện edge-tts chuẩn của Microsoft
+
 module.exports = async function (req, res) {
   // CORS config
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -24,7 +26,6 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    // Ép AI tách dòng rõ ràng giữa Tiếng Trung và Tiếng Việt để âm thanh không bị lẫn lộn
     const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung sinh động. 
 Mỗi khi trả lời, BẮT BUỘC phải trình bày theo định dạng xuống dòng rõ rệt như sau:
 [Chữ Hán] [Pinyin trong ngoặc vuông]
@@ -32,9 +33,7 @@ Mỗi khi trả lời, BẮT BUỘC phải trình bày theo định dạng xuố
 
 Ví dụ mẫu bắt buộc:
 欢迎你！ [Huānyíng nǐ!]
-(Chào mừng bạn đến với lớp học!)
-
-Tuyệt đối không gộp chung tiếng Trung và tiếng Việt vào cùng một dòng để âm thanh đọc được mạch lạc, tự nhiên.`;
+(Chào mừng bạn đến với lớp học!)`;
 
     const finalPrompt = prompt + "\n\n(Lưu ý: Nhớ tuân thủ quy tắc xuống dòng riêng biệt giữa tiếng Trung và tiếng Việt).";
 
@@ -67,59 +66,50 @@ Tuyệt đối không gộp chung tiếng Trung và tiếng Việt vào cùng m�
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. TÁCH VÀ XỬ LÝ AUDIO RIÊNG BIỆT TỪNG DÒNG (TRUNG - VIỆT)
+    // 2. TẠO ÂM THANH SIÊU MƯỢT BẰNG MICROSOFT EDGE TTS
     let audioBase64 = "";
     try {
-      // Chia nhỏ văn bản theo từng dòng để xử lý tốc độ và nhịp điệu đọc chuẩn hơn
       const lines = aiText.split('\n');
-      const fetchPromises = [];
+      const audioBuffers = [];
 
-      for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-        let line = lines[lineIndex].trim();
+      // Chọn giọng đọc xịn xò của Microsoft: Tiếng Trung dùng giọng nữ Xiaoxiao (hoặc Yunxi), Tiếng Việt dùng giọng HoaiMy
+      const zhVoice = "zh-CN-XiaoxiaoNeural"; 
+      const viVoice = "vi-VN-HoaiMyNeural";
+
+      for (let line of lines) {
+        line = line.trim();
         if (!line) continue;
 
-        // Nhận diện dòng chứa tiếng Trung hay tiếng Việt
         const isChineseLine = /[\u4e00-\u9fff]/.test(line);
-        const lang = isChineseLine ? "zh-CN" : "vi";
-
-        // Dọn dẹp ký tự thừa để đọc mượt mà
+        const voice = isChineseLine ? zhVoice : viVoice;
+        
         let cleanText = line.replace(/[*_#]/g, "");
         if (isChineseLine) {
-          // Với dòng tiếng Trung, giữ lại Hán tự và Pinyin (hoặc lược bỏ Pinyin nếu Google đọc bị ngọng, ở đây giữ nguyên Hán tự là chính)
-          cleanText = cleanText.replace(/\[.*?\]/g, "").trim();
+          cleanText = cleanText.replace(/\[.*?\]/g, "").trim(); // Chỉ đọc chữ Hán cho chuẩn phát âm
         }
 
         if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(cleanText)) {
-          const safeTextToRead = encodeURIComponent(cleanText.substring(0, 200));
-          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${safeTextToRead}`;
-          
-          fetchPromises.push(
-            fetch(ttsUrl)
-              .then(async (audioResponse) => {
-                if (audioResponse.ok) {
-                  const arrayBuffer = await audioResponse.arrayBuffer();
-                  return { index: lineIndex, buffer: Buffer.from(arrayBuffer) };
-                }
-                return null;
-              })
-              .catch(() => null)
-          );
+          const tts = new EdgeTTS({
+            voice: voice,
+            lang: isChineseLine ? "zh-CN" : "vi-VN",
+            outputFormat: "audio-24khz-48kbitrate-mono-mp3",
+          });
+
+          // Tạo audio stream từ Edge TTS
+          const audioBuffer = await tts.synthesize(cleanText);
+          if (audioBuffer) {
+            audioBuffers.push(Buffer.from(audioBuffer));
+          }
         }
       }
 
-      const fetchedResults = await Promise.all(fetchPromises);
-      const validBuffers = fetchedResults
-        .filter(res => res !== null && res.buffer !== null)
-        .sort((a, b) => a.index - b.index)
-        .map(res => res.buffer);
-
-      if (validBuffers.length > 0) {
-        const combinedBuffer = Buffer.concat(validBuffers);
+      if (audioBuffers.length > 0) {
+        const combinedBuffer = Buffer.concat(audioBuffers);
         audioBase64 = combinedBuffer.toString('base64');
       }
 
     } catch (ttsError) {
-      console.warn("Lỗi xử lý TTS dòng:", ttsError);
+      console.warn("Lỗi Edge TTS:", ttsError);
     }
 
     return res.status(200).json({
