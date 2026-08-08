@@ -18,18 +18,18 @@ module.exports = async function (req, res) {
   }
 
   try {
-    const apiKey = process.env.GROQ_API_KEY;
+    const groqKeys = getGroqKeys();
 
-    if (!apiKey) {
+    if (groqKeys.length === 0) {
       return res.status(500).json({
-        error: "Thiếu GROQ_API_KEY trên Vercel."
+        error: "Thiếu GROQ_API_KEY trên Vercel. Có thể thêm GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3..."
       });
     }
 
     const {
       messages,
       prompt,
-      temperature = 0.55,
+      temperature = 0.5,
       enableAudio = true
     } = req.body || {};
 
@@ -80,9 +80,6 @@ Bây giờ bạn thử nói một câu nhé.
 
 Ví dụ sai, tuyệt đối không viết:
 Đau bụng à, bạn có thể nói: 我肚子疼 (wǒ dùzi téng), nghĩa là "Tôi đau bụng".
-
-Ví dụ sai, tuyệt đối không viết:
-Bạn có thể nói 我肚子疼, pinyin là wǒ dùzi téng.
 `;
 
     let finalMessages = [
@@ -95,43 +92,30 @@ Bạn có thể nói 我肚子疼, pinyin là wǒ dùzi téng.
     if (Array.isArray(messages) && messages.length > 0) {
       const safeMessages = messages
         .filter((m) => m && (m.role === "user" || m.role === "assistant") && m.content)
-        .slice(-12)
+        .slice(-6)
         .map((m) => ({
           role: m.role,
-          content: String(m.content).slice(0, 2000)
+          content: String(m.content).slice(0, 800)
         }));
 
       finalMessages = finalMessages.concat(safeMessages);
     } else if (prompt) {
       finalMessages.push({
         role: "user",
-        content: String(prompt).slice(0, 4000)
+        content: String(prompt).slice(0, 2000)
       });
     }
 
-    const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
+    const modelCandidates = getGroqModelCandidates();
 
-    const textResponse = await fetch(groqUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-        messages: finalMessages,
-        temperature,
-        stream: false
-      })
+    const groqResult = await callGroqWithFallback({
+      groqKeys,
+      modelCandidates,
+      messages: finalMessages,
+      temperature
     });
 
-    const textData = await textResponse.json();
-
-    if (!textResponse.ok) {
-      throw new Error(textData?.error?.message || "Lỗi gọi API Groq.");
-    }
-
-    let aiText = textData?.choices?.[0]?.message?.content?.trim();
+    let aiText = groqResult.text;
 
     if (!aiText) {
       throw new Error("Groq không trả về nội dung.");
@@ -153,7 +137,9 @@ Bạn có thể nói 我肚子疼, pinyin là wǒ dùzi téng.
     return res.status(200).json({
       result: aiText,
       audioBase64,
-      mimeType: "audio/mpeg"
+      mimeType: "audio/mpeg",
+      usedModel: groqResult.model,
+      usedKeyIndex: groqResult.keyIndex
     });
 
   } catch (error) {
@@ -164,6 +150,147 @@ Bạn có thể nói 我肚子疼, pinyin là wǒ dùzi téng.
     });
   }
 };
+
+function getGroqKeys() {
+  const keys = [];
+
+  if (process.env.GROQ_API_KEY) keys.push(process.env.GROQ_API_KEY);
+
+  for (let i = 2; i <= 10; i++) {
+    const key = process.env[`GROQ_API_KEY_${i}`];
+    if (key) keys.push(key);
+  }
+
+  return [...new Set(keys.filter(Boolean))];
+}
+
+function getGroqModelCandidates() {
+  const fromEnv = process.env.GROQ_MODEL;
+
+  const defaultModels = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-8b-8192"
+  ];
+
+  if (!fromEnv) return defaultModels;
+
+  const envModels = fromEnv
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+
+  return [...new Set([...envModels, ...defaultModels])];
+}
+
+async function callGroqWithFallback({
+  groqKeys,
+  modelCandidates,
+  messages,
+  temperature
+}) {
+  const errors = [];
+
+  for (let keyIndex = 0; keyIndex < groqKeys.length; keyIndex++) {
+    const apiKey = groqKeys[keyIndex];
+
+    for (const model of modelCandidates) {
+      try {
+        const text = await callGroqOnce({
+          apiKey,
+          model,
+          messages,
+          temperature
+        });
+
+        return {
+          text,
+          model,
+          keyIndex: keyIndex + 1
+        };
+      } catch (error) {
+        const msg = String(error.message || "");
+        errors.push(`Key ${keyIndex + 1}, model ${model}: ${msg}`);
+
+        const retryable =
+          msg.toLowerCase().includes("rate limit") ||
+          msg.toLowerCase().includes("tokens per day") ||
+          msg.toLowerCase().includes("too many requests") ||
+          msg.toLowerCase().includes("429") ||
+          msg.toLowerCase().includes("service unavailable") ||
+          msg.toLowerCase().includes("503") ||
+          msg.toLowerCase().includes("timeout");
+
+        if (!retryable) {
+          console.warn("Groq non-retryable error, vẫn thử model/key tiếp:", msg);
+        } else {
+          console.warn("Groq retryable error, thử model/key tiếp:", msg);
+        }
+      }
+    }
+  }
+
+  throw new Error(
+    "Tất cả Groq API key hoặc model đều lỗi. Chi tiết: " +
+    errors.slice(-5).join(" | ")
+  );
+}
+
+async function callGroqOnce({
+  apiKey,
+  model,
+  messages,
+  temperature
+}) {
+  const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const textResponse = await fetch(groqUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        max_tokens: 550,
+        stream: false
+      }),
+      signal: controller.signal
+    });
+
+    const textData = await textResponse.json().catch(() => ({}));
+
+    if (!textResponse.ok) {
+      const message =
+        textData?.error?.message ||
+        `Groq HTTP ${textResponse.status}`;
+
+      throw new Error(message);
+    }
+
+    const aiText = textData?.choices?.[0]?.message?.content?.trim();
+
+    if (!aiText) {
+      throw new Error("Groq không trả về nội dung.");
+    }
+
+    return aiText;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Timeout khi gọi Groq.");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function normalizeAssistantFormat(text) {
   let out = String(text || "").trim();
