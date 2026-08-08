@@ -25,12 +25,21 @@ module.exports = async function (req, res) {
     }
 
     const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung. 
-Mỗi khi trả lời, BẮT BUỘC tuân thủ quy tắc:
-- Mọi Pinyin đều PHẢI được đặt trong ngoặc tròn (...), tuyệt đối KHÔNG dùng ngoặc vuông [...].
-- Trình bày thành các dòng riêng biệt: Dòng tiếng Trung kèm Pinyin trong ngoặc tròn, dòng nghĩa tiếng Việt ở bên dưới.
-Không bao giờ được trộn lẫn tiếng Trung và tiếng Việt trên cùng một dòng.`;
+Mỗi khi trả lời, BẮT BUỘC tuân thủ nghiêm ngặt định dạng sau:
+- PHẢI LUÔN CÓ CHỮ HÁN. Không bao giờ được bỏ quên chữ Hán.
+- Cấu trúc trình bày mỗi câu/từ tiếng Trung bắt buộc phải gồm: Chữ Hán, sau đó đến Pinyin nằm trong ngoặc tròn (...).
+- Nghĩa tiếng Việt đặt ở dòng riêng biệt bên dưới.
 
-    const finalPrompt = prompt + "\n\n(Lưu ý: Luôn dùng ngoặc tròn cho Pinyin và tách bạch rõ ràng dòng tiếng Trung và dòng tiếng Việt riêng biệt).";
+Ví dụ mẫu bắt buộc đúng 100%:
+你好 (nǐ hǎo)
+Xin chào bạn!
+
+汽车 (qìchē)
+Xe ô tô
+
+Tuyệt đối không được chỉ viết mỗi Pinyin mà mất chữ Hán.`;
+
+    const finalPrompt = prompt + "\n\n(Lưu ý: BẮT BUỘC phải có Chữ Hán kèm Pinyin trong ngoặc tròn, không được bỏ quên chữ Hán).";
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -61,7 +70,7 @@ Không bao giờ được trộn lẫn tiếng Trung và tiếng Việt trên c�
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. LỌC VÀ TÁCH CHUẨN XÁC, TỰ ĐỘNG XÓA SẠCH NỘI DUNG TRONG NGOẶC TRÒN KHI ĐỌC AUDIO
+    // 2. LỌC VÀ TÁCH CHUẨN XÁC, XÓA SẠCH NGOẶC TRÒN Pinyin KHI GỌI AUDIO
     let audioBase64 = "";
     try {
       const lines = aiText.split('\n');
@@ -75,7 +84,6 @@ Không bao giờ được trộn lẫn tiếng Trung và tiếng Việt trên c�
         let cleanText = line.replace(/[*_#]/g, "");
 
         if (hasChinese) {
-          // Xóa sạch mọi thứ trong ngoặc tròn (...) để máy không đọc Pinyin
           cleanText = cleanText.replace(/\(.*?\)/g, "").trim();
         }
 
