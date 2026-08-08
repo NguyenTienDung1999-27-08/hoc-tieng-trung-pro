@@ -24,21 +24,20 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung prompt." });
     }
 
-    // ÉP CỰC CĂNG: Không được mất chữ Hán, Pinyin ngoặc tròn, KHÔNG chèn chữ Hán vào tiếng Việt
-    const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung. 
-Mỗi khi trả lời, BẮT BUỘC tuân thủ nghiêm ngặt 3 quy tắc sau:
-1. PHẢI LUÔN CÓ CHỮ HÁN ở dòng đầu tiên, kèm Pinyin đặt trong NGOẶC TRÒN (...).
-2. Nghĩa tiếng Việt phải nằm ở một dòng riêng biệt ngay bên dưới.
-3. TUYỆT ĐỐI KHÔNG ĐƯỢC viết bất kỳ chữ Hán hay Pinyin nào vào dòng tiếng Việt (để hệ thống phát âm không bị lỗi).
+    // ĐÃ SỬA LẠI: Ưu tiên sự linh hoạt, nghe lời người dùng tuyệt đối.
+    const systemInstruction = `Bạn là giáo viên AI dạy tiếng Trung linh hoạt và thông minh.
+ĐIỀU QUAN TRỌNG NHẤT: Bạn PHẢI trò chuyện tự nhiên và tuân thủ mọi yêu cầu TỨC THỜI của người dùng. 
+- Nếu người dùng bảo "chỉ dùng tiếng Trung", bạn không được viết tiếng Việt.
+- Nếu người dùng bảo "không lấy ví dụ", bạn tuyệt đối không đưa ra ví dụ.
+- Hãy linh động theo mạch hội thoại.
 
-Ví dụ mẫu bắt buộc đúng 100%:
-摩托车 (mótuōchē)
-Bạn có thích đi xe máy không?
+QUY TẮC ĐỊNH DẠNG ÂM THANH (Chỉ áp dụng với những nội dung bạn quyết định xuất ra):
+1. Khi viết tiếng Trung, phải kèm Pinyin trong ngoặc tròn (...). VD: 汽车 (qìchē).
+2. Nếu câu trả lời có chứa cả tiếng Việt, thì tiếng Việt PHẢI nằm ở dòng hoàn toàn riêng biệt.
+3. KHÔNG chèn chữ Hán hay Pinyin vào cùng một dòng với tiếng Việt.`;
 
-你好 (nǐ hǎo)
-Xin chào bạn!`;
-
-    const finalPrompt = prompt + "\n\n(Lưu ý: BẮT BUỘC có chữ Hán và Pinyin trong ngoặc tròn. Tuyệt đối không chèn chữ Hán vào dòng tiếng Việt).";
+    // Không ép cứng quy tắc vào prompt của người dùng nữa để AI thở
+    const finalPrompt = prompt;
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -69,7 +68,7 @@ Xin chào bạn!`;
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. LỌC VÀ TÁCH CHUẨN XÁC, XÓA SẠCH NGOẶC TRÒN Pinyin KHI GỌI AUDIO
+    // 2. LỌC VÀ TÁCH AUDIO (Giữ nguyên logic cực mượt như cũ)
     let audioBase64 = "";
     try {
       const lines = aiText.split('\n');
@@ -83,7 +82,6 @@ Xin chào bạn!`;
         let cleanText = line.replace(/[*_#]/g, "");
 
         if (hasChinese) {
-          // Xóa sạch phần Pinyin trong ngoặc tròn đi, chỉ lấy chữ Hán để đọc tiếng Trung
           cleanText = cleanText.replace(/\(.*?\)/g, "").trim();
         }
 
@@ -91,8 +89,6 @@ Xin chào bạn!`;
 
         const langParam = hasChinese ? 'zh-CN' : 'vi';
         const textToEncode = encodeURIComponent(cleanText.substring(0, 200));
-        
-        // Dùng client=gtx để giọng Việt đầm ấm, không bị chua
         const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langParam}&q=${textToEncode}`;
         
         const audioResponse = await fetch(ttsUrl, {
