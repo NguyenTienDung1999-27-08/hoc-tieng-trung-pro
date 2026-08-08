@@ -25,12 +25,12 @@ module.exports = async function (req, res) {
     }
 
     const systemInstruction = `Bạn là trợ lý AI thông minh chuyên dạy tiếng Trung. 
-Mỗi khi trả lời, BẮT BUỘC trình bày thành các dòng riêng biệt:
-- Dòng chứa tiếng Trung (có kèm Pinyin trong ngoặc vuông).
-- Dòng giải thích nghĩa hoàn toàn bằng tiếng Việt ở bên dưới.
+Mỗi khi trả lời, BẮT BUỘC tuân thủ quy tắc:
+- Mọi Pinyin đều PHẢI được đặt trong ngoặc tròn (...), tuyệt đối KHÔNG dùng ngoặc vuông [...].
+- Trình bày thành các dòng riêng biệt: Dòng tiếng Trung kèm Pinyin trong ngoặc tròn, dòng nghĩa tiếng Việt ở bên dưới.
 Không bao giờ được trộn lẫn tiếng Trung và tiếng Việt trên cùng một dòng.`;
 
-    const finalPrompt = prompt + "\n\n(Lưu ý: Luôn tách bạch rõ ràng dòng tiếng Trung và dòng tiếng Việt riêng biệt).";
+    const finalPrompt = prompt + "\n\n(Lưu ý: Luôn dùng ngoặc tròn cho Pinyin và tách bạch rõ ràng dòng tiếng Trung và dòng tiếng Việt riêng biệt).";
 
     const groqUrl = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -61,7 +61,7 @@ Không bao giờ được trộn lẫn tiếng Trung và tiếng Việt trên c�
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. LỌC VÀ TÁCH CHUẨN XÁC ĐỂ KHÔNG BAO GIỜ BỊ ĐỌC NHẦM
+    // 2. LỌC VÀ TÁCH CHUẨN XÁC, TỰ ĐỘNG XÓA SẠCH NỘI DUNG TRONG NGOẶC TRÒN KHI ĐỌC AUDIO
     let audioBase64 = "";
     try {
       const lines = aiText.split('\n');
@@ -71,17 +71,14 @@ Không bao giờ được trộn lẫn tiếng Trung và tiếng Việt trên c�
         line = line.trim();
         if (!line) continue;
 
-        // KIỂM TRA CHÍNH XÁC: Nếu dòng có chứa ký tự chữ Hán -> Chắc chắn là tiếng Trung
         const hasChinese = /[\u4e00-\u9fff]/.test(line);
-        
         let cleanText = line.replace(/[*_#]/g, "");
 
         if (hasChinese) {
-          // Xóa sạch phần Pinyin trong ngoặc vuông đi, chỉ lấy đúng chữ Hán để máy đọc chuẩn phát âm tiếng Trung
-          cleanText = cleanText.replace(/\[.*?\]/g, "").trim();
+          // Xóa sạch mọi thứ trong ngoặc tròn (...) để máy không đọc Pinyin
+          cleanText = cleanText.replace(/\(.*?\)/g, "").trim();
         }
 
-        // Bỏ qua nếu dòng quá ngắn không có nội dung đọc
         if (cleanText.length < 2) continue;
 
         const langParam = hasChinese ? 'zh-CN' : 'vi';
