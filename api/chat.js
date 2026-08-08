@@ -64,33 +64,37 @@ Ví dụ mẫu bắt buộc:
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. GỌI MICROSOFT EDGE TTS BẰNG FETCH THAY VÌ DÙNG THƯ VIỆN NGOÀI
+    // 2. XỬ LÝ ÂM THANH MƯỢT MÀ, KHẮC PHỤC GIỌNG TIẾNG VIỆT BỊ CHUA
     let audioBase64 = "";
     try {
       const lines = aiText.split('\n');
       const audioBuffers = [];
-
-      const zhVoice = "zh-CN-XiaoxiaoNeural"; 
-      const viVoice = "vi-VN-HoaiMyNeural";
 
       for (let line of lines) {
         line = line.trim();
         if (!line) continue;
 
         const isChineseLine = /[\u4e00-\u9fff]/.test(line);
-        const voice = isChineseLine ? zhVoice : viVoice;
-        
         let cleanText = line.replace(/[*_#]/g, "");
+        
         if (isChineseLine) {
           cleanText = cleanText.replace(/\[.*?\]/g, "").trim(); 
         }
 
         if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(cleanText)) {
-          // Sử dụng API endpoint công khai mô phỏng Edge TTS để lấy Audio trực tiếp
-          const encodedText = encodeURIComponent(cleanText.substring(0, 200));
-          const edgeTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${isChineseLine ? 'zh-CN' : 'vi'}&q=${encodedText}`;
+          const textToEncode = encodeURIComponent(cleanText.substring(0, 200));
           
-          const audioResponse = await fetch(edgeTtsUrl);
+          // Dùng client và tham số tối ưu hóa để giọng đọc tiếng Việt ấm, tròn và không bị chói
+          // tl=vi-VN hoặc vi cho tiếng Việt, zh-CN cho tiếng Trung
+          const langParam = isChineseLine ? 'zh-CN' : 'vi';
+          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langParam}&q=${textToEncode}`;
+          
+          const audioResponse = await fetch(ttsUrl, {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            }
+          });
+
           if (audioResponse.ok) {
             const arrayBuffer = await audioResponse.arrayBuffer();
             audioBuffers.push(Buffer.from(arrayBuffer));
