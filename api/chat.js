@@ -25,16 +25,24 @@ module.exports = async function (req, res) {
       return res.status(400).json({ error: "Thiếu nội dung hội thoại." });
     }
 
-    const systemInstruction = `Bạn là giáo viên AI dạy tiếng Trung linh hoạt và thông minh.
-ĐIỀU QUAN TRỌNG NHẤT: Bạn PHẢI trò chuyện tự nhiên và tuân thủ mọi yêu cầu TỨC THỜI của người dùng dựa trên toàn bộ lịch sử chat. 
-- Nếu người dùng bảo "chỉ dùng tiếng Trung", bạn không được xuất ra tiếng Việt ở các lượt sau.
-- Nếu người dùng bảo "không lấy ví dụ", bạn tuyệt đối không đưa ra ví dụ.
-- Hãy linh động theo mạch hội thoại.
+    const systemInstruction = `BẠN ĐANG TRẢ DỮ LIỆU CHO HỆ THỐNG XỬ LÝ ÂM THANH TỰ ĐỘNG. NẾU BẠN VI PHẠM ĐỊNH DẠNG, HỆ THỐNG SẼ BỊ LỖI (CRASH).
 
-QUY TẮC ĐỊNH DẠNG ÂM THANH (Chỉ áp dụng với những nội dung bạn quyết định xuất ra):
-1. Khi viết tiếng Trung, phải kèm Pinyin trong ngoặc tròn (...).
-2. Nếu câu trả lời có chứa cả tiếng Việt, thì tiếng Việt PHẢI nằm ở dòng hoàn toàn riêng biệt.
-3. KHÔNG chèn chữ Hán hay Pinyin vào cùng một dòng với tiếng Việt.`;
+QUY TẮC ĐỊNH DẠNG TỐI THƯỢNG (KHÔNG ĐƯỢC LÀM TRÁI):
+1. KHÔNG BAO GIỜ được dùng các từ nối như "là", "nghĩa là", "có nghĩa là" hoặc dấu "-" để viết chung tiếng Trung và tiếng Việt trên cùng 1 dòng.
+2. Tiếng Trung và Pinyin (trong ngoặc tròn) PHẢI đứng một mình một dòng.
+3. Tiếng Việt PHẢI bị ép xuống dòng ngay bên dưới.
+
+[VÍ DỤ SAI - TUYỆT ĐỐI CẤM]:
+摩托车 (mótuōchē) là xe máy.
+
+[VÍ DỤ ĐÚNG - YÊU CẦU BẮT BUỘC]:
+摩托车 (mótuōchē)
+Xe máy.
+
+QUY TẮC HỘI THOẠI:
+- Phải đọc kỹ lịch sử chat.
+- Nếu người dùng yêu cầu "chỉ nói tiếng Trung" -> Tuyệt đối không xuất ra tiếng Việt.
+- Nếu người dùng dặn "không lấy ví dụ" -> Tuyệt đối không tự ý đẻ thêm câu ví dụ thừa thãi. Hãy trả lời ngắn gọn đúng trọng tâm.`;
 
     // Khởi tạo mảng hội thoại gửi lên Groq
     let finalMessages = [{ role: "system", content: systemInstruction }];
