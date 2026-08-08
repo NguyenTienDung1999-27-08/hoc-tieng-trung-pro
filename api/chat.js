@@ -1,5 +1,3 @@
-const { EdgeTTS } = require("edge-tts"); // Sử dụng thư viện edge-tts chuẩn của Microsoft
-
 module.exports = async function (req, res) {
   // CORS config
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -66,13 +64,12 @@ Ví dụ mẫu bắt buộc:
       throw new Error("Groq không trả về nội dung.");
     }
 
-    // 2. TẠO ÂM THANH SIÊU MƯỢT BẰNG MICROSOFT EDGE TTS
+    // 2. GỌI MICROSOFT EDGE TTS BẰNG FETCH THAY VÌ DÙNG THƯ VIỆN NGOÀI
     let audioBase64 = "";
     try {
       const lines = aiText.split('\n');
       const audioBuffers = [];
 
-      // Chọn giọng đọc xịn xò của Microsoft: Tiếng Trung dùng giọng nữ Xiaoxiao (hoặc Yunxi), Tiếng Việt dùng giọng HoaiMy
       const zhVoice = "zh-CN-XiaoxiaoNeural"; 
       const viVoice = "vi-VN-HoaiMyNeural";
 
@@ -85,20 +82,18 @@ Ví dụ mẫu bắt buộc:
         
         let cleanText = line.replace(/[*_#]/g, "");
         if (isChineseLine) {
-          cleanText = cleanText.replace(/\[.*?\]/g, "").trim(); // Chỉ đọc chữ Hán cho chuẩn phát âm
+          cleanText = cleanText.replace(/\[.*?\]/g, "").trim(); 
         }
 
         if (/[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF\u4e00-\u9fff]/.test(cleanText)) {
-          const tts = new EdgeTTS({
-            voice: voice,
-            lang: isChineseLine ? "zh-CN" : "vi-VN",
-            outputFormat: "audio-24khz-48kbitrate-mono-mp3",
-          });
-
-          // Tạo audio stream từ Edge TTS
-          const audioBuffer = await tts.synthesize(cleanText);
-          if (audioBuffer) {
-            audioBuffers.push(Buffer.from(audioBuffer));
+          // Sử dụng API endpoint công khai mô phỏng Edge TTS để lấy Audio trực tiếp
+          const encodedText = encodeURIComponent(cleanText.substring(0, 200));
+          const edgeTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${isChineseLine ? 'zh-CN' : 'vi'}&q=${encodedText}`;
+          
+          const audioResponse = await fetch(edgeTtsUrl);
+          if (audioResponse.ok) {
+            const arrayBuffer = await audioResponse.arrayBuffer();
+            audioBuffers.push(Buffer.from(arrayBuffer));
           }
         }
       }
@@ -109,7 +104,7 @@ Ví dụ mẫu bắt buộc:
       }
 
     } catch (ttsError) {
-      console.warn("Lỗi Edge TTS:", ttsError);
+      console.warn("Lỗi Audio:", ttsError);
     }
 
     return res.status(200).json({
