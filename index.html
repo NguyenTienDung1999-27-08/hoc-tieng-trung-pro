@@ -7772,124 +7772,21 @@ window.addEventListener(
      HỆ THỐNG GIỌNG ĐỌC VIỆT/TRUNG
   ======================================================= */
 
-  function refreshReflexVoices(){
-    if(!window.speechSynthesis){
-      reflexVoices = [];
-      return [];
-    }
+  /* =======================================================
+     HỆ THỐNG GIỌNG ĐỌC VIỆT/TRUNG (SỬ DỤNG GOOGLE CLOUD)
+  ======================================================= */
 
-    const voices =
-      window.speechSynthesis.getVoices();
-
-    if(Array.isArray(voices)){
-      reflexVoices = voices.slice();
-    }
-
-    return reflexVoices;
-  }
-
-  function waitForReflexVoices(
-    timeout = 2500
-  ){
-    return new Promise(function(resolve){
-      const existing =
-        refreshReflexVoices();
-
-      if(existing.length > 0){
-        resolve(existing);
-        return;
-      }
-
-      let finished = false;
-
-      const finish = function(){
-        if(finished){
-          return;
-        }
-
-        finished = true;
-        clearInterval(interval);
-        clearTimeout(timeoutId);
-
-        resolve(
-          refreshReflexVoices()
-        );
-      };
-
-      const interval =
-        setInterval(function(){
-          const voices =
-            refreshReflexVoices();
-
-          if(voices.length > 0){
-            finish();
-          }
-        },100);
-
-      const timeoutId =
-        setTimeout(finish,timeout);
-    });
-  }
-
-  function selectReflexVoice(language){
-    const target =
-      String(language || "")
-        .toLowerCase();
-
-    const prefix =
-      target.startsWith("zh")
-        ? "zh"
-        : "vi";
-
-    const exactLanguage =
-      target.startsWith("zh")
-        ? ["zh-cn","zh_cn"]
-        : ["vi-vn","vi_vn"];
-
-    let voice =
-      reflexVoices.find(function(item){
-        return exactLanguage.includes(
-          String(item.lang || "")
-            .toLowerCase()
-        );
-      });
-
-    if(voice){
-      return voice;
-    }
-
-    voice = reflexVoices.find(
-      function(item){
-        return String(item.lang || "")
-          .toLowerCase()
-          .startsWith(prefix);
-      }
-    );
-
-    if(voice){
-      return voice;
-    }
-
-    /*
-      Nếu không có đúng ngôn ngữ, trả về null.
-      Utterance.lang vẫn được đặt để hệ thống
-      tự tìm giọng phù hợp thay vì ép giọng sai.
-    */
-    return null;
-  }
+  let currentReflexAudio = null;
 
   function stopReflexSpeech(){
-    speechRequestToken++;
-
-    if(window.speechSynthesis){
-      window.speechSynthesis.cancel();
+    if(currentReflexAudio){
+      currentReflexAudio.pause();
+      currentReflexAudio.currentTime = 0;
+      currentReflexAudio = null;
     }
 
     if(activeSpeechButton){
-      activeSpeechButton.classList.remove(
-        "speaking"
-      );
-
+      activeSpeechButton.classList.remove("speaking");
       activeSpeechButton.disabled = false;
       activeSpeechButton = null;
     }
@@ -7900,30 +7797,14 @@ window.addEventListener(
     language,
     button = null
   ){
-    const cleanText =
-      String(text || "").trim();
+    const cleanText = String(text || "").trim();
 
     if(!cleanText){
       return false;
     }
 
-    if(
-      !window.speechSynthesis ||
-      !window.SpeechSynthesisUtterance
-    ){
-      if(button){
-        alert(
-          "Trình duyệt không hỗ trợ đọc văn bản."
-        );
-      }
-
-      return false;
-    }
-
+    // Dừng âm thanh cũ nếu đang phát
     stopReflexSpeech();
-
-    const requestToken =
-      speechRequestToken;
 
     if(button){
       activeSpeechButton = button;
@@ -7931,161 +7812,67 @@ window.addEventListener(
       button.classList.add("speaking");
     }
 
-    await waitForReflexVoices();
+    const isChinese = String(language || "").toLowerCase().startsWith("zh");
+    const langCode = isChinese ? "zh-CN" : "vi";
+    
+    // Tạo link âm thanh MP3 trực tiếp từ Google Translate
+    const textToEncode = encodeURIComponent(cleanText);
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langCode}&q=${textToEncode}`;
 
-    if(requestToken !== speechRequestToken){
+    currentReflexAudio = new Audio(ttsUrl);
+
+    // Chỉnh tốc độ đọc (Tiếng Trung nên đọc chậm lại một chút)
+    currentReflexAudio.playbackRate = isChinese ? 0.82 : 0.95;
+
+    currentReflexAudio.onended = function(){
+      if(button){
+        button.classList.remove("speaking");
+        button.disabled = false;
+      }
+      if(activeSpeechButton === button){
+        activeSpeechButton = null;
+      }
+    };
+
+    currentReflexAudio.onerror = function(){
+      if(button){
+        button.classList.remove("speaking");
+        button.disabled = false;
+      }
+      if(activeSpeechButton === button){
+        activeSpeechButton = null;
+      }
+      console.warn("Lỗi tải âm thanh từ Google. Vui lòng kiểm tra mạng.");
+    };
+
+    try {
+      await currentReflexAudio.play();
+      return true;
+    } catch(error) {
+      console.error("Trình duyệt chặn tự động phát âm thanh:", error);
+      if(button){
+        button.classList.remove("speaking");
+        button.disabled = false;
+      }
       return false;
     }
-
-    const isChinese =
-      String(language || "")
-        .toLowerCase()
-        .startsWith("zh");
-
-    const utterance =
-      new SpeechSynthesisUtterance(
-        cleanText
-      );
-
-    /*
-      Đây là phần quan trọng:
-      Đề tiếng Việt luôn dùng vi-VN.
-      Câu tham khảo luôn dùng zh-CN.
-    */
-    utterance.lang =
-      isChinese
-        ? "zh-CN"
-        : "vi-VN";
-
-    utterance.rate =
-      isChinese
-        ? 0.82
-        : 0.92;
-
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    const selectedVoice =
-      selectReflexVoice(
-        utterance.lang
-      );
-
-    if(selectedVoice){
-      utterance.voice =
-        selectedVoice;
-    }
-
-    utterance.onend =
-      function(){
-        if(button){
-          button.classList.remove(
-            "speaking"
-          );
-
-          button.disabled = false;
-        }
-
-        if(
-          activeSpeechButton ===
-          button
-        ){
-          activeSpeechButton = null;
-        }
-      };
-
-    utterance.onerror =
-      function(){
-        if(button){
-          button.classList.remove(
-            "speaking"
-          );
-
-          button.disabled = false;
-        }
-
-        if(
-          activeSpeechButton ===
-          button
-        ){
-          activeSpeechButton = null;
-        }
-      };
-
-    window.speechSynthesis.resume();
-    window.speechSynthesis.speak(
-      utterance
-    );
-
-    return true;
   }
 
-  function speakVietnameseQuestion(
-    text,
-    button = null
-  ){
-    return speakReflexText(
-      text,
-      "vi-VN",
-      button
-    );
+  function speakVietnameseQuestion(text, button = null){
+    return speakReflexText(text, "vi", button);
   }
 
-  function speakChineseReference(
-    text,
-    button = null
-  ){
-    return speakReflexText(
-      text,
-      "zh-CN",
-      button
-    );
+  function speakChineseReference(text, button = null){
+    return speakReflexText(text, "zh-CN", button);
   }
 
   function getVoiceStatusText(){
-    refreshReflexVoices();
-
-    const vietnameseVoice =
-      selectReflexVoice("vi-VN");
-
-    const chineseVoice =
-      selectReflexVoice("zh-CN");
-
-    const vietnameseText =
-      vietnameseVoice
-        ? `Giọng Việt: ${vietnameseVoice.name}`
-        : "Giọng Việt: trình duyệt tự chọn theo vi-VN";
-
-    const chineseText =
-      chineseVoice
-        ? `Giọng Trung: ${chineseVoice.name}`
-        : "Giọng Trung: trình duyệt tự chọn theo zh-CN";
-
-    return (
-      vietnameseText +
-      " • " +
-      chineseText
-    );
+    return "Đang dùng Giọng Đọc Google Đám Mây (Chuẩn 100%)";
   }
 
-  if(window.speechSynthesis){
-    window.speechSynthesis.addEventListener(
-      "voiceschanged",
-      function(){
-        refreshReflexVoices();
-
-        const status =
-          document.getElementById(
-            "reflexVoiceStatus"
-          );
-
-        if(status){
-          status.textContent =
-            getVoiceStatusText();
-        }
-      }
-    );
-
-    refreshReflexVoices();
+  // Giữ lại hàm này dạng rỗng để các logic khởi tạo cũ không bị lỗi
+  function waitForReflexVoices(){
+    return Promise.resolve();
   }
 
   /* =======================================================
