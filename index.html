@@ -6878,650 +6878,6 @@ window.addEventListener(
   }
 );
 </script>
-<!-- =========================================================
-     THI PHẢN XẠ AI
-     BẢN ĐẦY ĐỦ — GIỌNG VIỆT + LOA CÂU THAM KHẢO
-========================================================= -->
-
-<style>
-.ai-mode-switch{
-  display:flex;
-  gap:6px;
-  padding:5px;
-  margin-bottom:16px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  background:var(--paper-deep);
-}
-
-.ai-mode-btn{
-  flex:1;
-  min-height:42px;
-  padding:0 14px;
-  border:none;
-  border-radius:9px;
-  background:transparent;
-  color:var(--ink-soft);
-  cursor:pointer;
-  font:inherit;
-  font-weight:900;
-  transition:.2s ease;
-}
-
-.ai-mode-btn.active{
-  background:var(--ink);
-  color:var(--paper);
-  box-shadow:var(--shadow);
-}
-
-#aiConversationMode{
-  display:block;
-}
-
-#aiReflexMode{
-  display:none;
-}
-
-#aiReflexMode.active{
-  display:block;
-}
-
-.reflex-box{
-  max-width:860px;
-  margin:0 auto;
-}
-
-.reflex-setup{
-  padding:26px;
-  border:1px solid var(--line);
-  border-radius:20px;
-  background:
-    radial-gradient(
-      circle at top right,
-      rgba(201,162,75,.16),
-      transparent 42%
-    ),
-    #FDFCF8;
-  box-shadow:var(--shadow);
-}
-
-.reflex-title{
-  margin:0 0 7px;
-  color:var(--seal-deep);
-  font-size:28px;
-  text-align:center;
-}
-
-.reflex-description{
-  max-width:650px;
-  margin:0 auto 24px;
-  color:var(--ink-soft);
-  line-height:1.65;
-  text-align:center;
-}
-
-.reflex-settings{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:14px;
-}
-
-.reflex-field{
-  display:flex;
-  flex-direction:column;
-  gap:7px;
-}
-
-.reflex-field label{
-  color:var(--ink-soft);
-  font-size:13px;
-  font-weight:900;
-}
-
-.reflex-field select{
-  width:100%;
-}
-
-.reflex-start-row{
-  display:flex;
-  justify-content:center;
-  margin-top:22px;
-}
-
-.reflex-start-btn{
-  min-height:48px;
-  padding:0 28px;
-  border:none;
-  border-radius:999px;
-  background:linear-gradient(
-    135deg,
-    var(--seal),
-    var(--seal-deep)
-  );
-  color:#fff;
-  cursor:pointer;
-  font:inherit;
-  font-size:15px;
-  font-weight:900;
-  box-shadow:0 10px 24px rgba(192,57,43,.22);
-}
-
-.reflex-start-btn:disabled{
-  background:var(--line);
-  box-shadow:none;
-  cursor:not-allowed;
-}
-
-.reflex-note{
-  margin-top:15px;
-  color:var(--ink-soft);
-  font-size:12.5px;
-  line-height:1.55;
-  text-align:center;
-}
-
-.reflex-voice-status{
-  margin-top:8px;
-  padding:8px 12px;
-  border:1px solid var(--line);
-  border-radius:10px;
-  background:#fff;
-  color:var(--ink-soft);
-  font-size:12px;
-  line-height:1.5;
-  text-align:center;
-}
-
-.reflex-loading{
-  padding:65px 20px;
-  border:1px solid var(--line);
-  border-radius:20px;
-  background:#fff;
-  text-align:center;
-}
-
-.reflex-spinner{
-  width:56px;
-  height:56px;
-  margin:0 auto 18px;
-  border:6px solid var(--paper-deep);
-  border-top-color:var(--seal);
-  border-radius:50%;
-  animation:reflex-spin .85s linear infinite;
-}
-
-@keyframes reflex-spin{
-  to{
-    transform:rotate(360deg);
-  }
-}
-
-.reflex-topbar{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:10px;
-}
-
-.reflex-counter{
-  color:var(--jade);
-  font-weight:900;
-}
-
-.reflex-total-time{
-  color:var(--seal-deep);
-  font-variant-numeric:tabular-nums;
-  font-weight:900;
-}
-
-.reflex-progress{
-  height:10px;
-  margin-bottom:18px;
-  overflow:hidden;
-  border-radius:999px;
-  background:var(--paper-deep);
-}
-
-.reflex-progress-value{
-  height:100%;
-  border-radius:999px;
-  background:linear-gradient(
-    90deg,
-    var(--jade),
-    var(--gold)
-  );
-  transition:width .3s ease;
-}
-
-.reflex-question-card{
-  position:relative;
-  overflow:hidden;
-  padding:34px 24px 28px;
-  border:1px solid var(--line);
-  border-radius:22px;
-  background:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 39px,
-      rgba(28,26,23,.035) 39px,
-      rgba(28,26,23,.035) 40px
-    ),
-    #fff;
-  box-shadow:var(--shadow);
-  text-align:center;
-}
-
-.reflex-question-card::after{
-  content:"譯";
-  position:absolute;
-  top:12px;
-  right:18px;
-  color:rgba(192,57,43,.10);
-  font-family:'Noto Serif SC','Songti SC',serif;
-  font-size:68px;
-  font-weight:900;
-  transform:rotate(-8deg);
-  pointer-events:none;
-}
-
-.reflex-question-label{
-  color:var(--gold);
-  font-size:12px;
-  font-weight:900;
-  letter-spacing:.09em;
-  text-transform:uppercase;
-}
-
-.reflex-question-text{
-  position:relative;
-  z-index:1;
-  max-width:690px;
-  margin:14px auto 22px;
-  font-size:28px;
-  font-weight:900;
-  line-height:1.5;
-}
-
-.reflex-timer{
-  width:130px;
-  height:130px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  margin:8px auto 20px;
-  border:7px solid var(--paper-deep);
-  border-top-color:var(--gold);
-  border-radius:50%;
-  background:#fff;
-  box-shadow:inset 0 0 0 1px var(--line);
-}
-
-.reflex-timer.recording{
-  border-color:var(--seal);
-  animation:reflex-timer-pulse 1.2s infinite;
-}
-
-@keyframes reflex-timer-pulse{
-  0%,100%{
-    box-shadow:0 0 0 0 rgba(192,57,43,.25);
-  }
-
-  50%{
-    box-shadow:0 0 0 14px rgba(192,57,43,0);
-  }
-}
-
-.reflex-timer-number{
-  font-size:25px;
-  font-variant-numeric:tabular-nums;
-  font-weight:950;
-}
-
-.reflex-timer-caption{
-  margin-top:3px;
-  color:var(--ink-soft);
-  font-size:11px;
-  font-weight:800;
-}
-
-.reflex-actions{
-  display:flex;
-  justify-content:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.reflex-listen-btn,
-.reflex-mic-btn{
-  min-height:44px;
-  padding:0 18px;
-  border:none;
-  border-radius:999px;
-  cursor:pointer;
-  font:inherit;
-  font-weight:900;
-}
-
-.reflex-listen-btn{
-  border:1px solid var(--line);
-  background:var(--paper-deep);
-  color:var(--ink);
-}
-
-.reflex-listen-btn.speaking{
-  background:var(--jade);
-  border-color:var(--jade);
-  color:#fff;
-  animation:pulse 1.4s infinite;
-}
-
-.reflex-mic-btn{
-  background:var(--seal);
-  color:#fff;
-}
-
-.reflex-mic-btn.recording{
-  background:var(--gold);
-  animation:pulse 1.5s infinite;
-}
-
-.reflex-listen-btn:disabled,
-.reflex-mic-btn:disabled{
-  background:var(--line);
-  border-color:var(--line);
-  color:#fff;
-  cursor:not-allowed;
-  animation:none;
-}
-
-.reflex-transcript-box{
-  min-height:90px;
-  margin-top:20px;
-  padding:14px 16px;
-  border:1px dashed var(--gold);
-  border-radius:14px;
-  background:#FDFCF8;
-  text-align:left;
-}
-
-.reflex-transcript-label{
-  margin-bottom:6px;
-  color:var(--ink-soft);
-  font-size:12px;
-  font-weight:900;
-}
-
-.reflex-transcript{
-  color:var(--jade);
-  font-size:21px;
-  font-weight:900;
-  line-height:1.55;
-}
-
-.reflex-status{
-  min-height:24px;
-  margin-top:12px;
-  color:var(--ink-soft);
-  font-size:13px;
-  font-weight:800;
-  text-align:center;
-}
-
-.reflex-status.error{
-  color:var(--seal);
-}
-
-.reflex-complete{
-  padding:70px 20px;
-  border:1px solid var(--line);
-  border-radius:22px;
-  background:
-    radial-gradient(
-      circle at center,
-      rgba(201,162,75,.18),
-      transparent 52%
-    ),
-    #fff;
-  text-align:center;
-}
-
-.reflex-complete-icon{
-  font-size:76px;
-  animation:reflex-celebrate .8s ease both;
-}
-
-@keyframes reflex-celebrate{
-  0%{
-    opacity:0;
-    transform:scale(.4) rotate(-15deg);
-  }
-
-  70%{
-    transform:scale(1.15) rotate(5deg);
-  }
-
-  100%{
-    opacity:1;
-    transform:scale(1) rotate(0);
-  }
-}
-
-.reflex-complete h2{
-  margin:12px 0 8px;
-  color:var(--seal-deep);
-  font-size:30px;
-}
-
-.reflex-complete p{
-  color:var(--ink-soft);
-  line-height:1.65;
-}
-
-.reflex-score-hero{
-  display:flex;
-  align-items:center;
-  gap:22px;
-  padding:24px;
-  border:1px solid var(--line);
-  border-radius:20px;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(47,93,85,.09),
-      rgba(201,162,75,.13)
-    ),
-    #fff;
-}
-
-.reflex-score-circle{
-  width:142px;
-  height:142px;
-  flex:0 0 142px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  border:9px solid var(--jade);
-  border-radius:50%;
-  background:#fff;
-  box-shadow:var(--shadow);
-}
-
-.reflex-score-number{
-  color:var(--jade);
-  font-size:43px;
-  font-weight:950;
-  line-height:1;
-}
-
-.reflex-score-unit{
-  margin-top:5px;
-  color:var(--ink-soft);
-  font-size:13px;
-  font-weight:800;
-}
-
-.reflex-score-summary h2{
-  margin:0 0 8px;
-  color:var(--seal-deep);
-}
-
-.reflex-score-summary p{
-  margin:0;
-  color:var(--ink-soft);
-  line-height:1.65;
-}
-
-.reflex-detail-list{
-  display:grid;
-  gap:14px;
-  margin-top:18px;
-}
-
-.reflex-detail{
-  padding:18px;
-  border:1px solid var(--line);
-  border-radius:16px;
-  background:#fff;
-}
-
-.reflex-detail-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:12px;
-}
-
-.reflex-detail-number{
-  color:var(--jade);
-  font-weight:950;
-}
-
-.reflex-detail-score{
-  padding:5px 10px;
-  border-radius:999px;
-  background:var(--jade-soft);
-  color:var(--jade);
-  font-weight:950;
-}
-
-.reflex-detail-row{
-  margin-top:9px;
-  line-height:1.65;
-}
-
-.reflex-detail-row strong{
-  color:var(--ink-soft);
-}
-
-.reflex-user-answer{
-  color:var(--jade);
-  font-size:18px;
-  font-weight:900;
-}
-
-.reflex-reference-header{
-  display:flex;
-  align-items:center;
-  gap:9px;
-  flex-wrap:wrap;
-}
-
-.reflex-correct-answer{
-  margin-top:5px;
-  color:var(--seal-deep);
-  font-size:20px;
-  font-weight:900;
-}
-
-.reflex-pinyin-answer{
-  margin-top:3px;
-  color:var(--gold);
-  font-weight:900;
-}
-
-.reflex-reference-audio{
-  width:36px;
-  height:36px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  border:1px solid var(--gold);
-  border-radius:50%;
-  background:#fffaf0;
-  color:#8f6a15;
-  cursor:pointer;
-  font-size:17px;
-  transition:.18s ease;
-}
-
-.reflex-reference-audio:hover{
-  background:var(--gold);
-  color:#fff;
-  transform:scale(1.06);
-}
-
-.reflex-reference-audio.speaking{
-  background:var(--jade);
-  border-color:var(--jade);
-  color:#fff;
-  animation:pulse 1.4s infinite;
-}
-
-.reflex-reference-audio:disabled{
-  background:var(--line);
-  border-color:var(--line);
-  color:#fff;
-  cursor:not-allowed;
-  animation:none;
-  transform:none;
-}
-
-.reflex-result-actions{
-  display:flex;
-  justify-content:center;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:20px;
-}
-
-.reflex-error{
-  padding:36px 24px;
-  border:1px solid var(--seal);
-  border-radius:18px;
-  background:var(--wrong-bg);
-  color:var(--seal-deep);
-  text-align:center;
-}
-
-.reflex-error p{
-  line-height:1.65;
-}
-
-@media(max-width:700px){
-  .reflex-settings{
-    grid-template-columns:1fr;
-  }
-
-  .reflex-question-text{
-    font-size:22px;
-  }
-
-  .reflex-score-hero{
-    flex-direction:column;
-    text-align:center;
-  }
-
-  .reflex-detail-head{
-    align-items:flex-start;
-  }
-}
-</style>
-
 <script>
 (function(){
   "use strict";
@@ -7530,9 +6886,10 @@ window.addEventListener(
     "HocTiengTrung_AI_REFLEX_HISTORY_V3";
 
   let reflexState = createReflexState();
-  let reflexVoices = [];
+
+  // --- AUDIO SYSTEM (ĐÃ CHUYỂN SANG GOOGLE CLOUD TTS) ---
   let activeSpeechButton = null;
-  let speechRequestToken = 0;
+  let currentReflexAudio = null;
 
   function createReflexState(){
     return {
@@ -7652,7 +7009,6 @@ window.addEventListener(
     ){
       return [];
     }
-
     return appData.vocab;
   }
 
@@ -7769,19 +7125,14 @@ window.addEventListener(
   }
 
   /* =======================================================
-     HỆ THỐNG GIỌNG ĐỌC VIỆT/TRUNG
+     HỆ THỐNG GIỌNG ĐỌC VIỆT/TRUNG (GOOGLE TTS ĐÁM MÂY)
   ======================================================= */
-
-  /* =======================================================
-     HỆ THỐNG GIỌNG ĐỌC VIỆT/TRUNG (SỬ DỤNG GOOGLE CLOUD)
-  ======================================================= */
-
-  let currentReflexAudio = null;
 
   function stopReflexSpeech(){
     if(currentReflexAudio){
       currentReflexAudio.pause();
-      currentReflexAudio.currentTime = 0;
+      currentReflexAudio.removeAttribute('src');
+      currentReflexAudio.load();
       currentReflexAudio = null;
     }
 
@@ -7792,18 +7143,13 @@ window.addEventListener(
     }
   }
 
-  async function speakReflexText(
-    text,
-    language,
-    button = null
-  ){
+  async function speakReflexText(text, langCode, button = null){
     const cleanText = String(text || "").trim();
 
     if(!cleanText){
       return false;
     }
 
-    // Dừng âm thanh cũ nếu đang phát
     stopReflexSpeech();
 
     if(button){
@@ -7812,17 +7158,12 @@ window.addEventListener(
       button.classList.add("speaking");
     }
 
-    const isChinese = String(language || "").toLowerCase().startsWith("zh");
-    const langCode = isChinese ? "zh-CN" : "vi";
-    
-    // Tạo link âm thanh MP3 trực tiếp từ Google Translate
-    const textToEncode = encodeURIComponent(cleanText);
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langCode}&q=${textToEncode}`;
+    // Ép ngôn ngữ gọi qua Google Cloud
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${langCode}&q=${encodeURIComponent(cleanText)}`;
 
     currentReflexAudio = new Audio(ttsUrl);
-
-    // Chỉnh tốc độ đọc (Tiếng Trung nên đọc chậm lại một chút)
-    currentReflexAudio.playbackRate = isChinese ? 0.82 : 0.95;
+    // Tiếng Trung đọc tốc độ 0.85 để dễ nghe, Tiếng Việt đọc bình thường (1.0)
+    currentReflexAudio.playbackRate = langCode === "zh-CN" ? 0.85 : 1.0;
 
     currentReflexAudio.onended = function(){
       if(button){
@@ -7835,6 +7176,7 @@ window.addEventListener(
     };
 
     currentReflexAudio.onerror = function(){
+      console.warn("Lỗi tải âm thanh từ Google TTS.");
       if(button){
         button.classList.remove("speaking");
         button.disabled = false;
@@ -7842,17 +7184,19 @@ window.addEventListener(
       if(activeSpeechButton === button){
         activeSpeechButton = null;
       }
-      console.warn("Lỗi tải âm thanh từ Google. Vui lòng kiểm tra mạng.");
     };
 
     try {
       await currentReflexAudio.play();
       return true;
     } catch(error) {
-      console.error("Trình duyệt chặn tự động phát âm thanh:", error);
+      console.error("Lỗi phát âm thanh tự động:", error);
       if(button){
         button.classList.remove("speaking");
         button.disabled = false;
+      }
+      if(activeSpeechButton === button){
+        activeSpeechButton = null;
       }
       return false;
     }
@@ -7867,10 +7211,9 @@ window.addEventListener(
   }
 
   function getVoiceStatusText(){
-    return "Đang dùng Giọng Đọc Google Đám Mây (Chuẩn 100%)";
+    return "Đang dùng Giọng đọc Google Đám Mây (Chuẩn 100%)";
   }
 
-  // Giữ lại hàm này dạng rỗng để các logic khởi tạo cũ không bị lỗi
   function waitForReflexVoices(){
     return Promise.resolve();
   }
@@ -7884,7 +7227,6 @@ window.addEventListener(
       clearInterval(
         reflexState.timerInterval
       );
-
       reflexState.timerInterval = null;
     }
   }
@@ -7893,7 +7235,6 @@ window.addEventListener(
     if(!reflexState.startedAt){
       return 0;
     }
-
     return (
       performance.now() -
       reflexState.startedAt
@@ -7960,7 +7301,6 @@ window.addEventListener(
       console.error(
         "Không tìm thấy phần Trò chuyện AI."
       );
-
       return false;
     }
 
@@ -8100,7 +7440,6 @@ window.addEventListener(
     if(isReflex){
       renderReflex();
       populateReflexLessons();
-      waitForReflexVoices();
     }else{
       stopReflexSpeech();
       stopReflexTimer();
@@ -8137,7 +7476,6 @@ window.addEventListener(
           Chưa có dữ liệu Excel
         </option>
       `;
-
       return;
     }
 
@@ -8197,42 +7535,19 @@ window.addEventListener(
             <label for="reflexLessonSelect">
               Chọn bài học
             </label>
-
-            <select
-              id="reflexLessonSelect"
-            ></select>
+            <select id="reflexLessonSelect"></select>
           </div>
 
           <div class="reflex-field">
             <label for="reflexQuestionCount">
               Số lượng câu
             </label>
-
-            <select
-              id="reflexQuestionCount"
-            >
-              <option value="1">
-                1 câu
-              </option>
-
-              <option value="2">
-                2 câu
-              </option>
-
-              <option value="3">
-                3 câu
-              </option>
-
-              <option value="4">
-                4 câu
-              </option>
-
-              <option
-                value="5"
-                selected
-              >
-                5 câu
-              </option>
+            <select id="reflexQuestionCount">
+              <option value="1">1 câu</option>
+              <option value="2">2 câu</option>
+              <option value="3">3 câu</option>
+              <option value="4">4 câu</option>
+              <option value="5" selected>5 câu</option>
             </select>
           </div>
         </div>
@@ -8268,14 +7583,8 @@ window.addEventListener(
     return `
       <div class="reflex-loading">
         <div class="reflex-spinner"></div>
-
-        <h2>
-          ${reflexEscape(message)}
-        </h2>
-
-        <p class="small-note">
-          Vui lòng đợi trong giây lát.
-        </p>
+        <h2>${reflexEscape(message)}</h2>
+        <p class="small-note">Vui lòng đợi trong giây lát.</p>
       </div>
     `;
   }
@@ -8306,14 +7615,8 @@ window.addEventListener(
             / ${reflexState.questions.length}
           </div>
 
-          <div
-            class="reflex-total-time"
-            id="reflexTotalTime"
-          >
-            Tổng:
-            ${formatReflexTime(
-              totalElapsed()
-            )}
+          <div class="reflex-total-time" id="reflexTotalTime">
+            Tổng: ${formatReflexTime(totalElapsed())}
           </div>
         </div>
 
@@ -8330,22 +7633,13 @@ window.addEventListener(
           </div>
 
           <div class="reflex-question-text">
-            ${reflexEscape(
-              question.vietnamese
-            )}
+            ${reflexEscape(question.vietnamese)}
           </div>
 
-          <div
-            class="reflex-timer"
-            id="reflexTimer"
-          >
-            <div
-              class="reflex-timer-number"
-              id="reflexTimerNumber"
-            >
+          <div class="reflex-timer" id="reflexTimer">
+            <div class="reflex-timer-number" id="reflexTimerNumber">
               00:00.00
             </div>
-
             <div class="reflex-timer-caption">
               Thời gian phản xạ
             </div>
@@ -8374,18 +7668,12 @@ window.addEventListener(
               Hệ thống nghe được:
             </div>
 
-            <div
-              class="reflex-transcript hanzi-font"
-              id="reflexTranscript"
-            >
+            <div class="reflex-transcript hanzi-font" id="reflexTranscript">
               Chưa có câu trả lời...
             </div>
           </div>
 
-          <div
-            class="reflex-status"
-            id="reflexStatus"
-          >
+          <div class="reflex-status" id="reflexStatus">
             Nghe câu hỏi rồi bấm micro để trả lời.
           </div>
         </div>
@@ -8396,19 +7684,11 @@ window.addEventListener(
   function completeHtml(){
     return `
       <div class="reflex-complete">
-        <div class="reflex-complete-icon">
-          🎉
-        </div>
-
-        <h2>
-          Chúc mừng bạn đã hoàn thành bài!
-        </h2>
-
+        <div class="reflex-complete-icon">🎉</div>
+        <h2>Chúc mừng bạn đã hoàn thành bài!</h2>
         <p>
           Bạn đã trả lời đủ
-          <strong>
-            ${reflexState.answers.length} câu
-          </strong>.
+          <strong>${reflexState.answers.length} câu</strong>.
           <br>
           Bây giờ chuyển sang chuyên mục
           <strong>AI chấm điểm</strong>.
@@ -8416,29 +7696,17 @@ window.addEventListener(
 
         <div
           class="reflex-spinner"
-          style="
-            width:42px;
-            height:42px;
-            border-width:5px;
-            margin-top:22px;
-          "
+          style="width:42px;height:42px;border-width:5px;margin-top:22px;"
         ></div>
       </div>
     `;
   }
 
   function resultHtml(){
-    const result =
-      reflexState.result || {};
+    const result = reflexState.result || {};
 
     const totalScore =
-      Math.max(
-        0,
-        Math.min(
-          100,
-          Number(result.totalScore || 0)
-        )
-      );
+      Math.max(0, Math.min(100, Number(result.totalScore || 0)));
 
     const details =
       Array.isArray(result.details)
@@ -8448,10 +7716,7 @@ window.addEventListener(
     const totalDuration =
       reflexState.answers.reduce(
         function(sum,answer){
-          return (
-            sum +
-            Number(answer.durationMs || 0)
-          );
+          return sum + Number(answer.durationMs || 0);
         },
         0
       );
@@ -8463,7 +7728,6 @@ window.addEventListener(
             <div class="reflex-score-number">
               ${Math.round(totalScore)}
             </div>
-
             <div class="reflex-score-unit">
               / 100 điểm
             </div>
@@ -8482,19 +7746,15 @@ window.addEventListener(
                 )
               )}
             </h2>
-
             <p>
               ${reflexFormat(
                 result.summary ||
                 "AI đã hoàn thành việc chấm bài."
               )}
             </p>
-
             <p style="margin-top:8px;">
               <strong>Tổng thời gian:</strong>
-              ${formatReflexTime(
-                totalDuration
-              )}
+              ${formatReflexTime(totalDuration)}
             </p>
           </div>
         </div>
@@ -8502,12 +7762,8 @@ window.addEventListener(
         <div class="reflex-detail-list">
           ${reflexState.questions.map(
             function(question,index){
-              const answer =
-                reflexState.answers[index] ||
-                {};
-
-              const detail =
-                details[index] || {};
+              const answer = reflexState.answers[index] || {};
+              const detail = details[index] || {};
 
               const correctAnswer =
                 detail.correctAnswer ||
@@ -8527,28 +7783,17 @@ window.addEventListener(
                     </div>
 
                     <div class="reflex-detail-score">
-                      ${Math.round(
-                        Number(
-                          detail.score || 0
-                        )
-                      )}
-                      / 100
+                      ${Math.round(Number(detail.score || 0))} / 100
                     </div>
                   </div>
 
                   <div class="reflex-detail-row">
-                    <strong>
-                      Đề tiếng Việt:
-                    </strong>
-
-                    ${reflexEscape(
-                      question.vietnamese
-                    )}
+                    <strong>Đề tiếng Việt:</strong>
+                    ${reflexEscape(question.vietnamese)}
                   </div>
 
                   <div class="reflex-detail-row">
                     <strong>Bạn nói:</strong>
-
                     <div class="reflex-user-answer hanzi-font">
                       ${reflexEscape(
                         detail.userAnswer ||
@@ -8560,10 +7805,7 @@ window.addEventListener(
 
                   <div class="reflex-detail-row">
                     <div class="reflex-reference-header">
-                      <strong>
-                        Câu tham khảo:
-                      </strong>
-
+                      <strong>Câu tham khảo:</strong>
                       <button
                         type="button"
                         class="reflex-reference-audio"
@@ -8576,35 +7818,22 @@ window.addEventListener(
                     </div>
 
                     <div class="reflex-correct-answer hanzi-font">
-                      ${reflexEscape(
-                        correctAnswer
-                      )}
+                      ${reflexEscape(correctAnswer)}
                     </div>
 
                     <div class="reflex-pinyin-answer">
-                      ${reflexEscape(
-                        correctPinyin
-                      )}
+                      ${reflexEscape(correctPinyin)}
                     </div>
                   </div>
 
                   <div class="reflex-detail-row">
                     <strong>Nhận xét:</strong>
-
-                    ${reflexFormat(
-                      detail.feedback ||
-                      "Không có nhận xét."
-                    )}
+                    ${reflexFormat(detail.feedback || "Không có nhận xét.")}
                   </div>
 
                   <div class="reflex-detail-row">
-                    <strong>
-                      Thời gian phản xạ:
-                    </strong>
-
-                    ${formatReflexTime(
-                      answer.durationMs || 0
-                    )}
+                    <strong>Thời gian phản xạ:</strong>
+                    ${formatReflexTime(answer.durationMs || 0)}
                   </div>
                 </div>
               `;
@@ -8613,19 +7842,10 @@ window.addEventListener(
         </div>
 
         <div class="reflex-result-actions">
-          <button
-            type="button"
-            class="btn btn-seal"
-            id="btnRetryReflex"
-          >
+          <button type="button" class="btn btn-seal" id="btnRetryReflex">
             🔄 Thi lại với đề mới
           </button>
-
-          <button
-            type="button"
-            class="btn btn-secondary"
-            id="btnResetReflex"
-          >
+          <button type="button" class="btn btn-secondary" id="btnResetReflex">
             ⚙️ Chọn lại bài và số câu
           </button>
         </div>
@@ -8637,19 +7857,13 @@ window.addEventListener(
     return `
       <div class="reflex-error">
         <h2>❌ Chưa thể tiếp tục</h2>
-
         <p>
           ${reflexEscape(
             reflexState.errorMessage ||
             "Đã xảy ra lỗi không xác định."
           )}
         </p>
-
-        <button
-          type="button"
-          class="btn btn-secondary"
-          id="btnBackReflex"
-        >
+        <button type="button" class="btn btn-secondary" id="btnBackReflex">
           ← Quay lại thiết lập
         </button>
       </div>
@@ -8662,9 +7876,7 @@ window.addEventListener(
 
   function renderReflex(){
     const app =
-      document.getElementById(
-        "reflexApp"
-      );
+      document.getElementById("reflexApp");
 
     if(!app){
       return;
@@ -8672,42 +7884,23 @@ window.addEventListener(
 
     if(reflexState.phase === "setup"){
       app.innerHTML = setupHtml();
-
       populateReflexLessons();
 
       document
-        .getElementById(
-          "btnStartReflex"
-        )
-        .addEventListener(
-          "click",
-          function(){
-            startChallenge(false);
-          }
-        );
-
-      waitForReflexVoices()
-        .then(function(){
-          const status =
-            document.getElementById(
-              "reflexVoiceStatus"
-            );
-
-          if(status){
-            status.textContent =
-              getVoiceStatusText();
-          }
+        .getElementById("btnStartReflex")
+        .addEventListener("click", function(){
+          startChallenge(false);
         });
 
+      const status = document.getElementById("reflexVoiceStatus");
+      if(status){
+        status.textContent = getVoiceStatusText();
+      }
       return;
     }
 
     if(reflexState.phase === "generating"){
-      app.innerHTML =
-        loadingHtml(
-          "AI đang tạo đề thi..."
-        );
-
+      app.innerHTML = loadingHtml("AI đang tạo đề thi...");
       return;
     }
 
@@ -8715,42 +7908,21 @@ window.addEventListener(
       app.innerHTML = questionHtml();
 
       const question =
-        reflexState.questions[
-          reflexState.currentIndex
-        ];
+        reflexState.questions[reflexState.currentIndex];
 
       document
-        .getElementById(
-          "btnListenReflex"
-        )
-        .addEventListener(
-          "click",
-          function(){
-            speakVietnameseQuestion(
-              question.vietnamese,
-              this
-            );
-          }
-        );
+        .getElementById("btnListenReflex")
+        .addEventListener("click", function(){
+          speakVietnameseQuestion(question.vietnamese, this);
+        });
 
       document
-        .getElementById(
-          "btnRecordReflex"
-        )
-        .addEventListener(
-          "click",
-          toggleReflexRecording
-        );
+        .getElementById("btnRecordReflex")
+        .addEventListener("click", toggleReflexRecording);
 
-      /*
-        Tự động đọc đề bằng giọng Việt.
-        Nút loa vẫn có thể dùng nếu trình duyệt
-        chặn tự động phát.
-      */
+      // Tự động phát âm thanh qua Google Cloud
       setTimeout(function(){
-        speakVietnameseQuestion(
-          question.vietnamese
-        );
+        speakVietnameseQuestion(question.vietnamese);
       },350);
 
       return;
@@ -8762,11 +7934,7 @@ window.addEventListener(
     }
 
     if(reflexState.phase === "grading"){
-      app.innerHTML =
-        loadingHtml(
-          "AI đang chấm bài..."
-        );
-
+      app.innerHTML = loadingHtml("AI đang chấm bài...");
       return;
     }
 
@@ -8774,84 +7942,46 @@ window.addEventListener(
       app.innerHTML = resultHtml();
 
       app
-        .querySelectorAll(
-          "[data-reference-index]"
-        )
+        .querySelectorAll("[data-reference-index]")
         .forEach(function(button){
-          button.addEventListener(
-            "click",
-            function(){
-              const index = Number(
-                this.dataset.referenceIndex
-              );
+          button.addEventListener("click", function(){
+            const index = Number(this.dataset.referenceIndex);
+            const question = reflexState.questions[index] || {};
+            const detail = reflexState.result?.details?.[index] || {};
 
-              const question =
-                reflexState.questions[
-                  index
-                ] || {};
+            const chineseText = String(
+              detail.correctAnswer ||
+              question.referenceChinese ||
+              ""
+            ).trim();
 
-              const detail =
-                reflexState.result
-                  ?.details?.[index] ||
-                {};
-
-              const chineseText =
-                String(
-                  detail.correctAnswer ||
-                  question.referenceChinese ||
-                  ""
-                ).trim();
-
-              if(!chineseText){
-                alert(
-                  "Câu tham khảo chưa có nội dung."
-                );
-
-                return;
-              }
-
-              speakChineseReference(
-                chineseText,
-                this
-              );
+            if(!chineseText){
+              alert("Câu tham khảo chưa có nội dung.");
+              return;
             }
-          );
+
+            speakChineseReference(chineseText, this);
+          });
         });
 
       document
-        .getElementById(
-          "btnRetryReflex"
-        )
-        .addEventListener(
-          "click",
-          function(){
-            startChallenge(true);
-          }
-        );
+        .getElementById("btnRetryReflex")
+        .addEventListener("click", function(){
+          startChallenge(true);
+        });
 
       document
-        .getElementById(
-          "btnResetReflex"
-        )
-        .addEventListener(
-          "click",
-          resetChallenge
-        );
+        .getElementById("btnResetReflex")
+        .addEventListener("click", resetChallenge);
 
       return;
     }
 
     if(reflexState.phase === "error"){
       app.innerHTML = errorHtml();
-
       document
-        .getElementById(
-          "btnBackReflex"
-        )
-        .addEventListener(
-          "click",
-          resetChallenge
-        );
+        .getElementById("btnBackReflex")
+        .addEventListener("click", resetChallenge);
     }
   }
 
@@ -8859,9 +7989,7 @@ window.addEventListener(
      TẠO ĐỀ
   ======================================================= */
 
-  async function startChallenge(
-    usePreviousSettings
-  ){
+  async function startChallenge(usePreviousSettings){
     stopReflexSpeech();
     stopReflexTimer();
     stopReflexRecognition();
@@ -8871,71 +7999,43 @@ window.addEventListener(
       typeof loadState === "function"
     ){
       loadState();
-
-      if(
-        typeof populateLessonSelects ===
-        "function"
-      ){
+      if(typeof populateLessonSelects === "function"){
         populateLessonSelects();
       }
     }
 
-    let requestedLesson =
-      reflexState.lesson;
-
-    let questionCount =
-      reflexState.questionCount;
+    let requestedLesson = reflexState.lesson;
+    let questionCount = reflexState.questionCount;
 
     if(!usePreviousSettings){
       requestedLesson =
-        document.getElementById(
-          "reflexLessonSelect"
-        )?.value || "";
+        document.getElementById("reflexLessonSelect")?.value || "";
 
       questionCount =
         Math.max(
           1,
           Math.min(
             5,
-            Number(
-              document.getElementById(
-                "reflexQuestionCount"
-              )?.value || 5
-            )
+            Number(document.getElementById("reflexQuestionCount")?.value || 5)
           )
         );
     }
 
-    const lesson =
-      findLessonName(
-        requestedLesson
-      );
-
-    const vocabulary =
-      getLessonVocabulary(lesson);
+    const lesson = findLessonName(requestedLesson);
+    const vocabulary = getLessonVocabulary(lesson);
 
     if(!lesson){
-      alert(
-        "Bạn chưa chọn bài học."
-      );
-
+      alert("Bạn chưa chọn bài học.");
       return;
     }
 
     if(getVocabulary().length === 0){
-      alert(
-        "Ứng dụng chưa có dữ liệu từ vựng.\n\n" +
-        "Hãy chọn file Excel rồi thử lại."
-      );
-
+      alert("Ứng dụng chưa có dữ liệu từ vựng.\n\nHãy chọn file Excel rồi thử lại.");
       return;
     }
 
     if(vocabulary.length === 0){
-      alert(
-        `Không tìm thấy từ vựng của “${lesson}”.`
-      );
-
+      alert(`Không tìm thấy từ vựng của “${lesson}”.`);
       populateReflexLessons();
       return;
     }
@@ -8949,26 +8049,16 @@ window.addEventListener(
 
     renderReflex();
 
-    /*
-      Giữ prompt ngắn để tương thích với backend
-      đang giới hạn độ dài prompt.
-    */
     const vocabularyText =
       vocabulary
         .slice(0,22)
         .map(function(item){
-          return (
-            `${item.hanzi}` +
-            `(${item.pinyin})=` +
-            `${item.nghia}`
-          );
+          return `${item.hanzi}(${item.pinyin})=${item.nghia}`;
         })
         .join("; ");
 
     const recentQuestions =
-      readQuestionHistory()
-        .slice(-12)
-        .join(" | ");
+      readQuestionHistory().slice(-12).join(" | ");
 
     const prompt = `
 Tạo đề phản xạ Việt sang Trung cho người mới học.
@@ -8990,101 +8080,45 @@ Chỉ trả JSON, không Markdown:
     `.trim();
 
     try{
-      const response =
-        await callReflexAI(
-          prompt,
-          0.75
-        );
-
-      const parsed =
-        parseReflexJson(response);
-
-      const rawQuestions =
-        Array.isArray(
-          parsed.questions
-        )
-          ? parsed.questions
-          : [];
+      const response = await callReflexAI(prompt, 0.75);
+      const parsed = parseReflexJson(response);
+      const rawQuestions = Array.isArray(parsed.questions) ? parsed.questions : [];
 
       const used = new Set();
+      const questions = rawQuestions
+        .map(function(item){
+          return {
+            vietnamese: String(item.vietnamese || "").trim(),
+            referenceChinese: String(item.referenceChinese || item.chinese || item.answer || "").trim(),
+            pinyin: String(item.pinyin || "").trim()
+          };
+        })
+        .filter(function(item){
+          const key = normalizeReflexText(item.vietnamese);
+          if(!item.vietnamese || !item.referenceChinese || used.has(key)){
+            return false;
+          }
+          used.add(key);
+          return true;
+        })
+        .slice(0,questionCount);
 
-      const questions =
-        rawQuestions
-          .map(function(item){
-            return {
-              vietnamese:String(
-                item.vietnamese || ""
-              ).trim(),
-
-              referenceChinese:String(
-                item.referenceChinese ||
-                item.chinese ||
-                item.answer ||
-                ""
-              ).trim(),
-
-              pinyin:String(
-                item.pinyin || ""
-              ).trim()
-            };
-          })
-          .filter(function(item){
-            const key =
-              normalizeReflexText(
-                item.vietnamese
-              );
-
-            if(
-              !item.vietnamese ||
-              !item.referenceChinese ||
-              used.has(key)
-            ){
-              return false;
-            }
-
-            used.add(key);
-            return true;
-          })
-          .slice(0,questionCount);
-
-      if(
-        questions.length !==
-        questionCount
-      ){
-        throw new Error(
-          "AI chưa tạo đủ số câu. Hãy thử lại."
-        );
+      if(questions.length !== questionCount){
+        throw new Error("AI chưa tạo đủ số câu. Hãy thử lại.");
       }
 
-      reflexState.questions =
-        questions;
-
+      reflexState.questions = questions;
       reflexState.answers = [];
       reflexState.currentIndex = 0;
-      reflexState.startedAt =
-        performance.now();
-
-      reflexState.phase =
-        "question";
+      reflexState.startedAt = performance.now();
+      reflexState.phase = "question";
 
       saveQuestionHistory(questions);
       renderReflex();
     }catch(error){
-      console.error(
-        "Lỗi tạo đề:",
-        error
-      );
-
-      reflexState.phase =
-        "error";
-
-      reflexState.errorMessage =
-        "Không tạo được đề: " +
-        (
-          error.message ||
-          "Lỗi không xác định"
-        );
-
+      console.error("Lỗi tạo đề:", error);
+      reflexState.phase = "error";
+      reflexState.errorMessage = "Không tạo được đề: " + (error.message || "Lỗi không xác định");
       renderReflex();
     }
   }
@@ -9106,7 +8140,7 @@ Chỉ trả JSON, không Markdown:
       try{
         reflexState.recognition.stop();
       }catch{
-        // Đã dừng.
+        // Đã dừng
       }
     }
   }
@@ -9117,55 +8151,25 @@ Chỉ trả JSON, không Markdown:
       return;
     }
 
-    const RecognitionClass =
-      getRecognitionClass();
-
+    const RecognitionClass = getRecognitionClass();
     if(!RecognitionClass){
-      alert(
-        "Trình duyệt chưa hỗ trợ nhận diện giọng nói.\n\n" +
-        "Hãy dùng Chrome hoặc Microsoft Edge."
-      );
-
+      alert("Trình duyệt chưa hỗ trợ nhận diện giọng nói.\n\nHãy dùng Chrome hoặc Microsoft Edge.");
       return;
     }
 
     stopReflexSpeech();
 
-    const microphoneButton =
-      document.getElementById(
-        "btnRecordReflex"
-      );
-
-    const listenButton =
-      document.getElementById(
-        "btnListenReflex"
-      );
-
-    const transcriptBox =
-      document.getElementById(
-        "reflexTranscript"
-      );
-
-    const status =
-      document.getElementById(
-        "reflexStatus"
-      );
-
-    const timerCircle =
-      document.getElementById(
-        "reflexTimer"
-      );
+    const microphoneButton = document.getElementById("btnRecordReflex");
+    const listenButton = document.getElementById("btnListenReflex");
+    const transcriptBox = document.getElementById("reflexTranscript");
+    const status = document.getElementById("reflexStatus");
+    const timerCircle = document.getElementById("reflexTimer");
 
     reflexState.transcript = "";
-    reflexState.recognitionError =
-      false;
+    reflexState.recognitionError = false;
 
-    const recognition =
-      new RecognitionClass();
-
-    reflexState.recognition =
-      recognition;
-
+    const recognition = new RecognitionClass();
+    reflexState.recognition = recognition;
     recognition.lang = "zh-CN";
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -9175,178 +8179,79 @@ Chỉ trả JSON, không Markdown:
 
     recognition.onstart = function(){
       reflexState.recording = true;
-
-      microphoneButton.classList.add(
-        "recording"
-      );
-
-      microphoneButton.textContent =
-        "⏹️ Nói xong — Bấm để dừng";
-
+      microphoneButton.classList.add("recording");
+      microphoneButton.textContent = "⏹️ Nói xong — Bấm để dừng";
       listenButton.disabled = true;
-
-      timerCircle.classList.add(
-        "recording"
-      );
-
-      transcriptBox.textContent =
-        "Đang nghe...";
-
-      status.className =
-        "reflex-status";
-
-      status.textContent =
-        "Hãy nói câu trả lời bằng tiếng Trung.";
-
+      timerCircle.classList.add("recording");
+      transcriptBox.textContent = "Đang nghe...";
+      status.className = "reflex-status";
+      status.textContent = "Hãy nói câu trả lời bằng tiếng Trung.";
       startReflexTimer();
     };
 
-    recognition.onresult =
-      function(event){
-        let interimTranscript = "";
-
-        for(
-          let index =
-            event.resultIndex;
-          index <
-            event.results.length;
-          index++
-        ){
-          const transcript =
-            event.results[index][0]
-              ?.transcript || "";
-
-          if(
-            event.results[index]
-              .isFinal
-          ){
-            finalTranscript +=
-              transcript;
-          }else{
-            interimTranscript +=
-              transcript;
-          }
-        }
-
-        reflexState.transcript =
-          (
-            finalTranscript +
-            interimTranscript
-          ).trim();
-
-        transcriptBox.textContent =
-          reflexState.transcript ||
-          "Đang nghe...";
-      };
-
-    recognition.onerror =
-      function(event){
-        reflexState.recognitionError =
-          true;
-
-        status.className =
-          "reflex-status error";
-
-        if(event.error === "not-allowed"){
-          status.textContent =
-            "Bạn chưa cấp quyền micro.";
-        }else if(
-          event.error === "no-speech"
-        ){
-          status.textContent =
-            "Không nghe thấy tiếng nói. Hãy thử lại.";
+    recognition.onresult = function(event){
+      let interimTranscript = "";
+      for(let index = event.resultIndex; index < event.results.length; index++){
+        const transcript = event.results[index][0]?.transcript || "";
+        if(event.results[index].isFinal){
+          finalTranscript += transcript;
         }else{
-          status.textContent =
-            "Có lỗi khi nhận diện giọng nói.";
+          interimTranscript += transcript;
         }
-      };
+      }
+      reflexState.transcript = (finalTranscript + interimTranscript).trim();
+      transcriptBox.textContent = reflexState.transcript || "Đang nghe...";
+    };
+
+    recognition.onerror = function(event){
+      reflexState.recognitionError = true;
+      status.className = "reflex-status error";
+      if(event.error === "not-allowed"){
+        status.textContent = "Bạn chưa cấp quyền micro.";
+      }else if(event.error === "no-speech"){
+        status.textContent = "Không nghe thấy tiếng nói. Hãy thử lại.";
+      }else{
+        status.textContent = "Có lỗi khi nhận diện giọng nói.";
+      }
+    };
 
     recognition.onend = function(){
       stopReflexTimer();
-
       reflexState.recording = false;
-
-      microphoneButton.classList.remove(
-        "recording"
-      );
-
-      microphoneButton.textContent =
-        "🎤 Trả lời lại";
-
+      microphoneButton.classList.remove("recording");
+      microphoneButton.textContent = "🎤 Trả lời lại";
       listenButton.disabled = false;
+      timerCircle.classList.remove("recording");
 
-      timerCircle.classList.remove(
-        "recording"
-      );
-
-      const transcript =
-        (
-          finalTranscript ||
-          reflexState.transcript ||
-          ""
-        ).trim();
-
-      const durationMs =
-        reflexState.questionStartedAt
-          ? (
-              performance.now() -
-              reflexState.questionStartedAt
-            )
-          : 0;
-
+      const transcript = (finalTranscript || reflexState.transcript || "").trim();
+      const durationMs = reflexState.questionStartedAt ? (performance.now() - reflexState.questionStartedAt) : 0;
       reflexState.questionStartedAt = 0;
 
-      if(
-        reflexState.recognitionError ||
-        !transcript
-      ){
-        transcriptBox.textContent =
-          transcript ||
-          "Không nhận diện được câu trả lời.";
-
-        status.className =
-          "reflex-status error";
-
-        status.textContent =
-          "Chưa ghi nhận. Hãy bấm micro và thử lại.";
-
+      if(reflexState.recognitionError || !transcript){
+        transcriptBox.textContent = transcript || "Không nhận diện được câu trả lời.";
+        status.className = "reflex-status error";
+        status.textContent = "Chưa ghi nhận. Hãy bấm micro và thử lại.";
         return;
       }
 
-      transcriptBox.textContent =
-        transcript;
-
-      status.className =
-        "reflex-status";
-
-      status.textContent =
-        "✅ Đã ghi nhận. Chuẩn bị sang câu tiếp theo...";
-
+      transcriptBox.textContent = transcript;
+      status.className = "reflex-status";
+      status.textContent = "✅ Đã ghi nhận. Chuẩn bị sang câu tiếp theo...";
       microphoneButton.disabled = true;
       listenButton.disabled = true;
 
       reflexState.answers.push({
-        questionIndex:
-          reflexState.currentIndex,
-
+        questionIndex: reflexState.currentIndex,
         transcript,
-
-        durationMs:
-          Math.round(durationMs)
+        durationMs: Math.round(durationMs)
       });
 
       setTimeout(function(){
         reflexState.currentIndex++;
-
-        if(
-          reflexState.currentIndex >=
-          reflexState.questions.length
-        ){
+        if(reflexState.currentIndex >= reflexState.questions.length){
           finishChallenge();
         }else{
-          reflexState.phase =
-            "question";
-
+          reflexState.phase = "question";
           reflexState.transcript = "";
           renderReflex();
         }
@@ -9356,16 +8261,9 @@ Chỉ trả JSON, không Markdown:
     try{
       recognition.start();
     }catch(error){
-      console.error(
-        "Không bật được micro:",
-        error
-      );
-
-      status.className =
-        "reflex-status error";
-
-      status.textContent =
-        "Không bật được micro. Hãy kiểm tra quyền trình duyệt.";
+      console.error("Không bật được micro:", error);
+      status.className = "reflex-status error";
+      status.textContent = "Không bật được micro. Hãy kiểm tra quyền trình duyệt.";
     }
   }
 
@@ -9378,47 +8276,27 @@ Chỉ trả JSON, không Markdown:
     stopReflexTimer();
     stopReflexRecognition();
 
-    reflexState.phase =
-      "complete";
-
+    reflexState.phase = "complete";
     renderReflex();
 
     await new Promise(function(resolve){
       setTimeout(resolve,1800);
     });
 
-    reflexState.phase =
-      "grading";
-
+    reflexState.phase = "grading";
     renderReflex();
 
-    const submission =
-      reflexState.questions.map(
-        function(question,index){
-          const answer =
-            reflexState.answers[index] ||
-            {};
+    const submission = reflexState.questions.map(function(question,index){
+      const answer = reflexState.answers[index] || {};
+      return {
+        n:index + 1,
+        vi:question.vietnamese,
+        ref:question.referenceChinese,
+        said:answer.transcript || "",
+        sec:Number((Number(answer.durationMs || 0) / 1000).toFixed(2))
+      };
+    });
 
-          return {
-            n:index + 1,
-            vi:question.vietnamese,
-            ref:question.referenceChinese,
-            said:answer.transcript || "",
-            sec:Number(
-              (
-                Number(
-                  answer.durationMs || 0
-                ) / 1000
-              ).toFixed(2)
-            )
-          };
-        }
-      );
-
-    /*
-      Prompt ngắn để không vượt giới hạn
-      của API chat hiện tại.
-    */
     const prompt = `
 Chấm bài phản xạ Việt sang Trung:
 ${JSON.stringify(submission)}
@@ -9438,44 +8316,20 @@ Chỉ trả JSON:
     `.trim();
 
     try{
-      const response =
-        await callReflexAI(
-          prompt,
-          0.15
-        );
+      const response = await callReflexAI(prompt, 0.15);
+      const result = parseReflexJson(response);
 
-      const result =
-        parseReflexJson(response);
-
-      if(
-        !Array.isArray(
-          result.details
-        )
-      ){
+      if(!Array.isArray(result.details)){
         result.details = [];
       }
 
       reflexState.result = result;
-      reflexState.phase =
-        "result";
-
+      reflexState.phase = "result";
       renderReflex();
     }catch(error){
-      console.error(
-        "Lỗi chấm bài:",
-        error
-      );
-
-      reflexState.phase =
-        "error";
-
-      reflexState.errorMessage =
-        "AI chưa chấm được bài: " +
-        (
-          error.message ||
-          "Lỗi không xác định"
-        );
-
+      console.error("Lỗi chấm bài:", error);
+      reflexState.phase = "error";
+      reflexState.errorMessage = "AI chưa chấm được bài: " + (error.message || "Lỗi không xác định");
       renderReflex();
     }
   }
@@ -9485,9 +8339,7 @@ Chỉ trả JSON:
     stopReflexTimer();
     stopReflexRecognition();
 
-    reflexState =
-      createReflexState();
-
+    reflexState = createReflexState();
     renderReflex();
     populateReflexLessons();
   }
@@ -9497,17 +8349,11 @@ Chỉ trả JSON:
   ======================================================= */
 
   function initializeReflex(){
-    if(
-      getVocabulary().length === 0 &&
-      typeof loadState === "function"
-    ){
+    if(getVocabulary().length === 0 && typeof loadState === "function"){
       loadState();
     }
 
-    if(
-      typeof populateLessonSelects ===
-      "function"
-    ){
+    if(typeof populateLessonSelects === "function"){
       populateLessonSelects();
     }
 
@@ -9516,48 +8362,26 @@ Chỉ trả JSON:
     }
 
     renderReflex();
-    waitForReflexVoices();
 
     document
       .querySelectorAll(".tab-btn")
       .forEach(function(button){
-        button.addEventListener(
-          "click",
-          function(){
-            if(
-              button.dataset.view ===
-              "chat"
-            ){
-              setTimeout(function(){
-                populateReflexLessons();
-                refreshReflexVoices();
-              },0);
-            }
+        button.addEventListener("click", function(){
+          if(button.dataset.view === "chat"){
+            setTimeout(function(){
+              populateReflexLessons();
+            },0);
           }
-        );
+        });
       });
   }
 
   if(document.readyState === "complete"){
-    setTimeout(
-      initializeReflex,
-      0
-    );
+    setTimeout(initializeReflex,0);
   }else{
-    window.addEventListener(
-      "load",
-      initializeReflex,
-      {
-        once:true
-      }
-    );
+    window.addEventListener("load", initializeReflex, {once:true});
   }
 })();
 </script>
-
-<!-- =========================================================
-     KẾT THÚC THI PHẢN XẠ AI
-========================================================= -->
-
 </body>
 </html>
