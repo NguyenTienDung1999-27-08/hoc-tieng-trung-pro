@@ -6880,7 +6880,7 @@ window.addEventListener(
 </script>
 <!-- =========================================================
      THI PHẢN XẠ AI
-     BẢN ĐẦY ĐỦ — GIỌNG VIỆT + LOA CÂU THAM KHẢO
+     BẢN ĐẦY ĐỦ — ĐÃ ĐỒNG BỘ AUDIO VỚI BACKEND CHAT
 ========================================================= -->
 
 <style>
@@ -7531,7 +7531,7 @@ window.addEventListener(
 
   let reflexState = createReflexState();
   
-  // --- HỆ THỐNG AUDIO: GOOGLE CLOUD TTS ---
+  // --- AUDIO SYSTEM (ĐÃ CHUYỂN SANG DÙNG BACKEND /API/CHAT ĐỂ TRÁNH LỖI) ---
   let activeSpeechButton = null;
   let currentReflexAudio = null;
 
@@ -7680,7 +7680,7 @@ window.addEventListener(
   }
 
   /* =======================================================
-     HỆ THỐNG GIỌNG ĐỌC: GOOGLE TTS ĐÁM MÂY
+     AUDIO THÔNG QUA BACKEND (/api/chat) ĐỂ LẤY MP3 TỪ GOOGLE
   ======================================================= */
 
   function stopReflexSpeech(){
@@ -7710,35 +7710,61 @@ window.addEventListener(
       button.classList.add("speaking");
     }
 
-    // Dùng googleapis.com để tránh lỗi 403 Forbidden của trình duyệt
-    const ttsUrl = `https://translate.googleapis.com/translate_tts?ie=UTF-8&client=gtx&tl=${langCode}&q=${encodeURIComponent(cleanText)}`;
-
-    currentReflexAudio = new Audio(ttsUrl);
-    // Tiếng Trung đọc chậm một chút, Tiếng Việt bình thường
-    currentReflexAudio.playbackRate = langCode === "zh-CN" ? 0.85 : 1.0;
-
-    currentReflexAudio.onended = function(){
-      if(button){
-        button.classList.remove("speaking");
-        button.disabled = false;
-      }
-      if(activeSpeechButton === button) activeSpeechButton = null;
-    };
-
-    currentReflexAudio.onerror = function(){
-      console.warn("Lỗi tải âm thanh từ Google TTS. Có thể do mạng hoặc Google chặn.");
-      if(button){
-        button.classList.remove("speaking");
-        button.disabled = false;
-      }
-      if(activeSpeechButton === button) activeSpeechButton = null;
-    };
-
     try {
+      // Gọi vào /api/chat với công tắc ttsOnly = true
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          ttsOnly: true, 
+          textToSpeak: cleanText, 
+          lang: langCode 
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!data.audioBase64) {
+        throw new Error(data.error || "Không có dữ liệu âm thanh");
+      }
+
+      // Chuyển Base64 thành file âm thanh để phát
+      const byteCharacters = atob(data.audioBase64);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
+      for(let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      
+      const audioBlob = new Blob([byteNumbers], { type: data.mimeType || "audio/mpeg" });
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      currentReflexAudio = new Audio(audioUrl);
+      // Ép tốc độ: Tiếng Trung đọc từ từ (0.85), Tiếng Việt đọc tốc độ thường (1.0)
+      currentReflexAudio.playbackRate = langCode === "zh-CN" ? 0.85 : 1.0;
+
+      currentReflexAudio.onended = function(){
+        if(button){
+          button.classList.remove("speaking");
+          button.disabled = false;
+        }
+        if(activeSpeechButton === button) activeSpeechButton = null;
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      currentReflexAudio.onerror = function(){
+        console.warn("Lỗi phát file Audio.");
+        if(button){
+          button.classList.remove("speaking");
+          button.disabled = false;
+        }
+        if(activeSpeechButton === button) activeSpeechButton = null;
+      };
+
       await currentReflexAudio.play();
       return true;
+
     } catch(error) {
-      console.error("Lỗi phát âm thanh:", error);
+      console.error("Lỗi gọi Server qua /api/chat để lấy TTS:", error);
       if(button){
         button.classList.remove("speaking");
         button.disabled = false;
@@ -7757,7 +7783,7 @@ window.addEventListener(
   }
 
   function getVoiceStatusText(){
-    return "Đang dùng Giọng đọc Google Đám Mây (Chuẩn 100%)";
+    return "Đang dùng Giọng đọc Google qua Server (Chuẩn 100%)";
   }
 
   function waitForReflexVoices(){
@@ -8104,7 +8130,7 @@ window.addEventListener(
 
       document.getElementById("btnRecordReflex").addEventListener("click", toggleReflexRecording);
 
-      // Tự động phát âm thanh qua Google Cloud TTS
+      // Tự động phát âm thanh thông qua Backend
       setTimeout(function(){
         speakVietnameseQuestion(question.vietnamese);
       }, 350);

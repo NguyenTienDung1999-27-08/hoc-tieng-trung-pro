@@ -18,6 +18,64 @@ module.exports = async function (req, res) {
   }
 
   try {
+    const {
+      messages,
+      prompt,
+      temperature = 0.5,
+      enableAudio = true,
+      ttsOnly = false,    // <--- CÔNG TẮC CHỈ LẤY AUDIO (DÙNG CHO PHẢN XẠ)
+      textToSpeak = "",   // <--- TEXT CẦN ĐỌC
+      lang = "vi"         // <--- NGÔN NGỮ ĐỌC
+    } = req.body || {};
+
+    // =====================================================================
+    // 1. NHÁNH XỬ LÝ RIÊNG CHO PHẦN THI PHẢN XẠ (CHỈ LẤY MP3 TỪ GOOGLE)
+    // =====================================================================
+    if (ttsOnly && textToSpeak) {
+      const audioBuffers = [];
+      const cleanText = String(textToSpeak)
+        .replace(/[*_#`"“”]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      if (!cleanText) {
+        return res.status(400).json({ error: "Nội dung text trống." });
+      }
+
+      // Tận dụng hàm chunk có sẵn ở cuối file
+      const chunks = splitTextIntoChunks(cleanText, 180);
+
+      for (const chunk of chunks) {
+        const textToEncode = encodeURIComponent(chunk);
+        // Dùng client=tw-ob để Google không bao giờ chặn (chống lỗi 403)
+        const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${textToEncode}`;
+        
+        const audioResponse = await fetch(ttsUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0"
+          }
+        });
+
+        if (audioResponse.ok) {
+          const arrayBuffer = await audioResponse.arrayBuffer();
+          audioBuffers.push(Buffer.from(arrayBuffer));
+        }
+      }
+
+      if (audioBuffers.length === 0) {
+        throw new Error("Không lấy được âm thanh TTS từ Google.");
+      }
+
+      const combinedBuffer = Buffer.concat(audioBuffers);
+      return res.status(200).json({
+        audioBase64: combinedBuffer.toString("base64"),
+        mimeType: "audio/mpeg"
+      });
+    }
+
+    // =====================================================================
+    // 2. NHÁNH XỬ LÝ CHAT AI BÌNH THƯỜNG (DÙNG CHO TRÒ CHUYỆN)
+    // =====================================================================
     const groqKeys = getGroqKeys();
 
     if (groqKeys.length === 0) {
@@ -25,13 +83,6 @@ module.exports = async function (req, res) {
         error: "Thiếu GROQ_API_KEY trên Vercel. Có thể thêm GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3..."
       });
     }
-
-    const {
-      messages,
-      prompt,
-      temperature = 0.5,
-      enableAudio = true
-    } = req.body || {};
 
     if (!messages && !prompt) {
       return res.status(400).json({
@@ -327,8 +378,9 @@ async function buildGoogleTranslateAudio(aiText) {
 
       for (const chunk of chunks) {
         const textToEncode = encodeURIComponent(chunk);
+        // Thay đổi sang tw-ob ở đây luôn để ổn định cho cả phần Chat AI
         const ttsUrl =
-          `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${seg.lang}&q=${textToEncode}`;
+          `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${seg.lang}&q=${textToEncode}`;
 
         const audioResponse = await fetch(ttsUrl, {
           headers: {
