@@ -1,5 +1,31 @@
 <!DOCTYPE html>
 <html lang="vi">
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<!-- ================= CHÈN ĐOẠN MẬT KHẨU VÀO ĐÂY ================= -->
+<script>
+  (function() {
+    const PASSWORD_QUYEN = "dungdepzai123"; // Bác đổi lại mật khẩu tùy ý ở đây nhé
+    
+    if (sessionStorage.getItem("isLoggedIn") !== "true") {
+      let pass = prompt("Vui lòng nhập mật khẩu để truy cập ứng dụng:");
+      if (pass === PASSWORD_QUYEN) {
+        sessionStorage.setItem("isLoggedIn", "true");
+      } else {
+        alert("Sai mật khẩu! Trang web sẽ bị chặn.");
+        document.documentElement.innerHTML = "<h2 style='text-align:center; margin-top:20vh; font-family:sans-serif;'>Truy cập bị từ chối 🔒</h2>";
+        throw new Error("Unauthorized");
+      }
+    }
+  })();
+</script>
+<!-- ============================================================== -->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dungdepzai</title>
+<!-- Các thẻ meta, script excel, hanzi-writer khác giữ nguyên bên dưới... -->
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
