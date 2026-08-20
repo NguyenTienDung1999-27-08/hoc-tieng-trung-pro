@@ -221,6 +221,7 @@ function getGroqModelCandidates() {
 const defaultModels = [
     "openai/gpt-oss-20b",
     "openai/gpt-oss-120b"
+"llama-3.1-8b-instant"
   ];
   if (!fromEnv) return defaultModels;
 
@@ -307,7 +308,7 @@ async function callGroqOnce({
         model,
         messages,
         temperature,
-        max_tokens: 550,
+        max_tokens: 2000,
         stream: false
       }),
       signal: controller.signal
