@@ -220,7 +220,7 @@ function getGroqModelCandidates() {
 
 const defaultModels = [
     "openai/gpt-oss-20b",
-    "openai/gpt-oss-120b"
+    "openai/gpt-oss-120b",
 "llama-3.1-8b-instant"
   ];
   if (!fromEnv) return defaultModels;
