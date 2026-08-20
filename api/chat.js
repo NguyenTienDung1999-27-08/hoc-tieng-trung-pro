@@ -219,8 +219,8 @@ function getGroqModelCandidates() {
   const fromEnv = process.env.GROQ_MODEL;
 
 const defaultModels = [
-    "llama-3.1-8b-instant",     // Model siêu nhanh, dùng làm fallback
-    "llama-3.3-70b-versatile"   // Model 70B thông minh nhất hiện tại của Groq
+    "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b"
   ];
   if (!fromEnv) return defaultModels;
 
