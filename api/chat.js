@@ -219,9 +219,8 @@ function getGroqModelCandidates() {
   const fromEnv = process.env.GROQ_MODEL;
 
 const defaultModels = [
-    "mixtral-8x7b-32768",
-    "llama3-70b-8192",
-    "gemma2-9b-it"
+    "llama-3.1-8b-instant",     // Model siêu nhanh, dùng làm fallback
+    "llama-3.3-70b-versatile"   // Model 70B thông minh nhất hiện tại của Groq
   ];
   if (!fromEnv) return defaultModels;
 
