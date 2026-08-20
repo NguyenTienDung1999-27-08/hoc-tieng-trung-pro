@@ -218,12 +218,11 @@ function getGroqKeys() {
 function getGroqModelCandidates() {
   const fromEnv = process.env.GROQ_MODEL;
 
-  const defaultModels = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "llama3-8b-8192"
+const defaultModels = [
+    "mixtral-8x7b-32768",
+    "llama3-70b-8192",
+    "gemma2-9b-it"
   ];
-
   if (!fromEnv) return defaultModels;
 
   const envModels = fromEnv
